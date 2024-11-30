@@ -481,6 +481,11 @@ impl UiElement {
     pub fn set_dirty(&self) {
         unsafe { (self as *const UiElement as *mut UiElement).as_mut().unwrap_unchecked().dirty = true };
     }
+
+    pub fn add_child(&mut self, mut child: Self) {
+        child.parent = self as _;
+        self.childs.push(child);
+    }
 }
 
 impl Default for UiElement {

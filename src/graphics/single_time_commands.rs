@@ -2,7 +2,6 @@ use ash::vk;
 
 use super::VkBase;
 
-
 pub struct SinlgeTimeCommands;
 
 impl SinlgeTimeCommands {
