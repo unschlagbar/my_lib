@@ -1,0 +1,28 @@
+[package]
+name = "iron_oxide"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+debug-assertions = false
+overflow-checks = false
+
+[dependencies]
+sha1_smol = "1.0.0"
+base64 = "0.22.0"
+ash = "0.38.0"
+ash-window = "0.13.0"
+cgmath = "0.18.0"
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { version = "0.30.5", features = ["android-game-activity"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+winit = { version = "0.30.5" }
+
+[features]
+linked = ["ash/linked"]
