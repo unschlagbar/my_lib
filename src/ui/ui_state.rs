@@ -48,6 +48,7 @@ impl UiState {
     }
 
     pub fn get_instaces(&mut self, ui_size: Vec2) -> Vec<UiInstance> {
+        println!("ff");
         let mut instances = Vec::new();
 
         if !self.visible || self.elements.len() == 0 {
@@ -96,10 +97,12 @@ impl UiState {
             }
         }
 
+        //Not old event
         if bol != 2 {
             if let Some(selected) = self.selected {
                 let selected = unsafe { &mut *selected.cast_mut() };
-    
+
+                //No event
                 if bol == 0 {
                     self.selected = None;
                     match &mut selected.inherit {
@@ -134,6 +137,7 @@ impl UiState {
                             UiType::DragBox(dragbox) => {
                                 dragbox.pressed = false;
                                 self.pressed = None;
+                                println!("released");
                             }
                             _ => ()
                         }
@@ -141,9 +145,14 @@ impl UiState {
                     UiEvent::Move => {
                         let element = unsafe { &mut *pressed.cast_mut() };
                         match &mut element.inherit {
-                            UiType::DragBox(dragbox) => {
-                                dragbox.pressed = false;
-                                element.computed.pos += cursor_pos - self.cursor_pos;
+                            UiType::DragBox(_) => {
+                                match element.style {
+                                    Style::Inline(_) if !element.parent.is_null() => {
+                                        let parent = unsafe { &mut *(element.parent as *mut UiElement) };
+                                        parent.computed.pos += cursor_pos - self.cursor_pos;
+                                    },
+                                    _ => element.computed.pos += cursor_pos - self.cursor_pos
+                                }
                                 bol = 1;
                             }
                             _ => ()
@@ -153,6 +162,7 @@ impl UiState {
                 }
             }
         }
+        //New event
         if bol == 1 { self.dirty = true }
         self.cursor_pos = cursor_pos;
         bol

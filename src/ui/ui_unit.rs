@@ -5,28 +5,54 @@ use crate::primitives::Vec2;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum UiSize {
-    Auto(),
-    AutoMax(UIUnit),
-    Size(UIUnit),
-    Add(UIUnit, UIUnit),
-    Sub(UIUnit, UIUnit),
     Fill(),
-    SetMin(UIUnit, UIUnit),
-    SetMax(UIUnit, UIUnit),
+    Undefined(),
+    Auto(),
+    AutoMin(UIUnit),
+    AutoMax(UIUnit),
+    AutoMinMax(UIUnit, UIUnit),
+    Size(UIUnit),
+    SizeMin(UIUnit, UIUnit),
+    SizeMax(UIUnit, UIUnit),
+    SizeMinMax(UIUnit, UIUnit, UIUnit),
+    Sub(UIUnit, UIUnit),
+    Add(UIUnit, UIUnit),
+
 }
 
 impl UiSize {
     #[inline]
     pub fn width(&self, parent_size: Vec2) -> f32 {
         match self {
+            Self::Fill() => {
+                parent_size.x
+            },
+            Self::Undefined() => {
+                0.0
+            },
             Self::Auto() => {
                 100.0
             },
+            Self::AutoMin(min) => {
+                100f32.max(min.pixelx(parent_size))
+            },
             Self::AutoMax(max) => {
-                max.pixelx(parent_size).min(100.0)
+                100f32.min(max.pixelx(parent_size))
+            },
+            Self::AutoMinMax(min, max) => {
+                100f32.clamp(min.pixelx(parent_size), max.pixelx(parent_size))
             },
             Self::Size(unit) => {
                 unit.pixelx(parent_size)
+            },
+            Self::SizeMin(unit, min) => {
+                unit.pixelx(parent_size).max(min.pixelx(parent_size))
+            },
+            Self::SizeMax(unit, max) => {
+                unit.pixelx(parent_size).min(max.pixelx(parent_size))
+            },
+            Self::SizeMinMax(unit, min, max) => {
+                unit.pixelx(parent_size).clamp(min.pixelx(parent_size), max.pixelx(parent_size))
             },
             Self::Add(first, second) => {
                 first.pixelx(parent_size) + second.pixelx(parent_size)
@@ -34,29 +60,41 @@ impl UiSize {
             Self::Sub(first, second) => {
                 (first.pixelx(parent_size) - second.pixelx(parent_size)).max(0.0)
             },
-            UiSize::Fill() => {
-                parent_size.x
-            },
-            UiSize::SetMin(unit, min) => {
-                unit.pixelx(parent_size).max(min.pixelx(parent_size))
-            },
-            UiSize::SetMax(unit, max) => {
-                unit.pixelx(parent_size).min(max.pixelx(parent_size))
-            }, 
         }
     }
 
     #[inline]
     pub fn height(&self, parent_size: Vec2) -> f32 {
         match self {
+            Self::Fill() => {
+                parent_size.y
+            },
+            Self::Undefined() => {
+                0.0
+            },
             Self::Auto() => {
-                60.0
+                50.0
+            },
+            Self::AutoMin(min) => {
+                50f32.max(min.pixely(parent_size))
             },
             Self::AutoMax(max) => {
-                max.pixely(parent_size).min(100.0)
+                50f32.min(max.pixely(parent_size))
+            },
+            Self::AutoMinMax(min, max) => {
+                50f32.clamp(min.pixely(parent_size), max.pixely(parent_size))
             },
             Self::Size(unit) => {
                 unit.pixely(parent_size)
+            },
+            Self::SizeMin(unit, min) => {
+                unit.pixely(parent_size).max(min.pixely(parent_size))
+            },
+            Self::SizeMax(unit, max) => {
+                unit.pixely(parent_size).min(max.pixely(parent_size))
+            },
+            Self::SizeMinMax(unit, min, max) => {
+                unit.pixely(parent_size).clamp(min.pixely(parent_size), max.pixely(parent_size))
             },
             Self::Add(first, second) => {
                 first.pixely(parent_size) + second.pixely(parent_size)
@@ -64,15 +102,6 @@ impl UiSize {
             Self::Sub(first, second) => {
                 (first.pixely(parent_size) - second.pixely(parent_size)).max(0.0)
             },
-            UiSize::Fill() => {
-                parent_size.y
-            },
-            UiSize::SetMin(unit, min) => {
-                unit.pixely(parent_size).max(min.pixely(parent_size))
-            },
-            UiSize::SetMax(unit, max) => {
-                unit.pixely(parent_size).min(max.pixely(parent_size))
-            }, 
         }
     }
 }
@@ -91,6 +120,7 @@ pub enum Align {
 #[repr(u8)]
 pub enum UIUnit {
     Zero(),
+    Undefined(),
     Pixel(f32),
     Relative(f32),
     RelativeHeight(f32),
@@ -102,6 +132,12 @@ impl UIUnit {
     #[inline]
     pub fn pixelx(&self, parent_size: Vec2) -> f32 {
         match self {
+            Self::Zero() => {
+                0.0
+            },
+            Self::Undefined() => {
+                f32::NAN
+            },
             Self::Pixel(pixel) => {
                 *pixel
             },
@@ -114,15 +150,18 @@ impl UIUnit {
             Self::Rem(rem) => {
                 *rem
             },
-            Self::Zero() => {
-                0.0
-            }
         }
     }
 
     #[inline]
     pub fn pixely(&self, parent_size: Vec2) -> f32 {
         match self {
+            Self::Zero() => {
+                0.0
+            },
+            Self::Undefined() => {
+                f32::NAN
+            },
             Self::Pixel(pixel) => {
                 *pixel
             },
@@ -135,9 +174,6 @@ impl UIUnit {
             Self::Rem(rem) => {
                 *rem
             },
-            Self::Zero() => {
-                0.0
-            }
         }
     }
 }

@@ -1,38 +1,60 @@
-use crate::graphics::formats::RGB;
+
+use crate::graphics::formats::RGBA;
 
 use super::{Align, UIUnit, UiSize};
 
 
-#[derive(Debug, Clone, Copy)]
-pub struct Style {
-    pub x: Align,
-    pub y: Align,
-    pub width: UiSize,
-    pub height: UiSize,
-    pub color: RGB,
-    pub border_color: RGB,
-    pub border: f32,
-    pub corner: UIUnit,
+#[derive(Debug, Clone)]
+pub enum Style {
+    Absolute(Absolute),
+    Inline(Inline),
 }
 
 impl Style {
-    pub const FULL: Self = Self { x: Align::Left(UIUnit::Zero()), y: Align::Top(UIUnit::Zero()), width: UiSize::Size(UIUnit::Relative(1.0)), height: UiSize::Size(UIUnit::Relative(1.0)), color: RGB::BLACK, border_color: RGB::BLACK, border: 0.0, corner: UIUnit::Zero() };
+    pub const FULL: Self = Self::Inline( Inline {margin: [UIUnit::Zero(); 4], padding: [UIUnit::Zero(); 4], width: UiSize::Size(UIUnit::Relative(1.0)), height: UiSize::Size(UIUnit::Relative(1.0)), color: RGBA::WHITE, border_color: RGBA::BLACK, border: [1.0; 4], corner: [UIUnit::Zero(); 4]} );
     
-    pub fn infill(padding: f32, color: RGB) -> Self {
-        Self { x: Align::Left(UIUnit::Pixel(padding)), y: Align::Top(UIUnit::Pixel(padding)), width: UiSize::Sub(UIUnit::Relative(1.0), UIUnit::Pixel(padding * 2.0)), height: UiSize::Sub(UIUnit::Relative(1.0), UIUnit::Pixel(padding * 2.0)), color, border_color: color, border: 0.0, corner: UIUnit::RelativeHeight(0.5) }
+    pub fn infill(padding: f32, color: RGBA) -> Self {
+        Self::Inline(Inline { margin: [UIUnit::Zero(); 4], padding: [UIUnit::Pixel(padding); 4], width: UiSize::Fill(), height: UiSize::Fill(), color, border_color: color, border: [0.0; 4], corner: [UIUnit::RelativeHeight(0.5); 4] })
     }
 
-    pub fn toggle(color: RGB) -> Self {
-        Self { x: Align::Left(UIUnit::RelativeHeight(-0.5)), y: Align::Center(), width: UiSize::Size(UIUnit::RelativeHeight(1.0)), height: UiSize::Size(UIUnit::RelativeHeight(1.0)), color, border_color: color, border: 0.0, corner: UIUnit::RelativeHeight(0.5) }
+    pub fn toggle(color: RGBA) -> Self {
+        Self::Absolute(Absolute { x: Align::Left(UIUnit::RelativeHeight(-0.5)), y: Align::Center(), width: UiSize::Size(UIUnit::RelativeHeight(1.0)), height: UiSize::Size(UIUnit::RelativeHeight(1.0)), color, border_color: color, border: [0.0; 4], corner: [UIUnit::RelativeHeight(0.5); 4] })
     }
 
-    pub const fn new(x: Align, y: Align, width: UiSize, height: UiSize, color: RGB, border_color: RGB, border: f32, corner: UIUnit) -> Self {
-        Self { x, y, width, height, color, border_color, border, corner }
+    pub const fn new(x: Align, y: Align, width: UiSize, height: UiSize, color: RGBA, border_color: RGBA, border: f32, corner: UIUnit) -> Self {
+        Self::Absolute(Absolute { x, y, width, height, color, border_color, border: [border; 4], corner: [corner; 4] })
+    }
+
+    pub const fn inline(color: RGBA, border_color: RGBA, border: f32, corner: UIUnit) -> Self {
+        Self::Inline(Inline { margin: [UIUnit::Zero(); 4], padding: [UIUnit::Zero(); 4], width: UiSize::Fill(), height: UiSize::Auto(), color, border_color, border: [border; 4], corner: [corner; 4] })
     }
 }
 
 impl Default for Style {
     fn default() -> Self {
-        Self { x: Align::Left(UIUnit::Zero()), y: Align::Top(UIUnit::Zero()), width: UiSize::Size(UIUnit::Pixel(200.0)), height: UiSize::Size(UIUnit::Pixel(100.0)), color: RGB::WHITE, border_color: RGB::BLACK, border: 1.0, corner: UIUnit::Pixel(5.0) }
+        Self::Inline(Inline { margin: [UIUnit::Zero(); 4], padding: [UIUnit::Zero(); 4], width: UiSize::Auto(), height: UiSize::Auto(), color: RGBA::WHITE, border_color: RGBA::BLACK, border: [1.0; 4], corner: [UIUnit::Pixel(5.0); 4] })
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Absolute {
+    pub x: Align,
+    pub y: Align,
+    pub width: UiSize,
+    pub height: UiSize,
+    pub color: RGBA,
+    pub border_color: RGBA,
+    pub border: [f32; 4],
+    pub corner: [UIUnit; 4],
+}
+#[derive(Debug, Clone)]
+pub struct Inline {
+    pub margin: [UIUnit; 4],
+    pub padding: [UIUnit; 4],
+    pub width: UiSize,
+    pub height: UiSize,
+    pub color: RGBA,
+    pub border_color: RGBA,
+    pub border: [f32; 4],
+    pub corner: [UIUnit; 4],
 }

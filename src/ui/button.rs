@@ -1,7 +1,7 @@
 use std::ptr::null;
 use core::fmt::Debug;
 
-use super::{callback::{self, ErasedFnPointer}, RawUiElement, RenderMode, Style, UiElement, UiState, UiType};
+use super::{callback::{self, ErasedFnPointer}, RawUiElement, Style, UiElement, UiState, UiType};
 
 #[derive(Clone)]
 pub struct Button {
@@ -14,11 +14,10 @@ pub struct Button {
 }
 
 impl Button {
-    pub const fn new(style: Style, hover_style: Style, press_style: Style, childs: Vec<UiElement>, mode: RenderMode) -> UiElement {
+    pub const fn new(style: Style, hover_style: Style, press_style: Style, childs: Vec<UiElement>) -> UiElement {
         UiElement {
             style,
             visible: true,
-            mode,
             dirty: true,
             childs,
             parent: null(),

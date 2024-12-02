@@ -1,7 +1,7 @@
 use std::{ptr::null, rc::Rc};
 use core::fmt::Debug;
 
-use super::{RawUiElement, RenderMode, Style, UiElement, UiType};
+use super::{RawUiElement, Style, UiElement, UiType};
 
 #[derive(Clone)]
 pub struct TextInput {
@@ -15,7 +15,6 @@ impl TextInput {
         UiElement {
             style,
             visible: true,
-            mode: RenderMode::Inline,
             dirty: true,
             parent: null(),
             childs: vec![],

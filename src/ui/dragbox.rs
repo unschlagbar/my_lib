@@ -1,6 +1,6 @@
 use std::ptr::null;
 
-use super::{BasicAlign, RawUiElement, RenderMode, Style, UiElement, UiType};
+use super::{BasicAlign, RawUiElement, Style, UiElement, UiType};
 
 
 #[derive(Debug, Clone)]
@@ -17,7 +17,6 @@ impl DragBox {
         UiElement {
             style,
             visible: true,
-            mode: RenderMode::Absolute,
             dirty: true,
             parent: null(),
             childs: vec![],

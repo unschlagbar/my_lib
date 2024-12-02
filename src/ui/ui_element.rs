@@ -1,14 +1,13 @@
 use std::ptr::null;
 
-use crate::{graphics::{formats::Color, UiInstance}, primitives::Vec2};
+use crate::{graphics::UiInstance, primitives::Vec2};
 
-use super::{Align, BuildContext, Font, RawUiElement, RenderMode, Style, Text, UiEvent, UiState, UiType};
+use super::{Align, BuildContext, Font, RawUiElement, Style, UiEvent, UiState, UiType};
 
 #[derive(Clone, Debug)]
 pub struct UiElement {
     pub style: Style,
     pub visible: bool,
-    pub mode: RenderMode,
     pub dirty: bool,
     pub parent: *const UiElement,
     pub childs: Vec<UiElement>,
@@ -19,11 +18,11 @@ pub struct UiElement {
 impl UiElement {
 
     pub const fn new(style: Style, childs: Vec<UiElement>) -> Self {
-        Self { style, childs, mode: RenderMode::Absolute, visible: true, dirty: true, inherit: UiType::Block(), computed: RawUiElement::default(), parent: null() }
+        Self { style, childs, visible: true, dirty: true, inherit: UiType::Block(), computed: RawUiElement::default(), parent: null() }
     }
 
     pub const fn inline(style: Style, childs: Vec<UiElement>) -> Self {
-        Self { style, childs, mode: RenderMode::Inline, visible: true, dirty: true, inherit: UiType::Block(), computed: RawUiElement::default(), parent: null() }
+        Self { style, childs, visible: true, dirty: true, inherit: UiType::Block(), computed: RawUiElement::default(), parent: null() }
     }
 
     #[inline(always)]
@@ -34,239 +33,90 @@ impl UiElement {
             return;
         }
 
+        let self_copy = unsafe { &mut *(self as *mut _) };
+
         match &self.inherit {
             UiType::Text(text) => {
-
-                let size = Vec2::new(
-                    self.style.width.width(context.parent_size),
-                    self.style.height.height(context.parent_size)
-                );
-
-                let mut pos = Vec2::new(
-                    match self.style.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(context.parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(context.parent_size) - size.x
-                        },
-                        Align::Center() => {
-                            (context.parent_size.x - size.x) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                    match self.style.y {
-                        Align::Top(unit) => {
-                            unit.pixely(context.parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                        },
-                        Align::Center() => {
-                            (context.parent_size.y - size.y) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                );
-                pos += context.start_pos;
-
-
-                match self.mode {
-                    RenderMode::Inline => {
-                        context.start_pos.y += size.y;
-                    }
-                    _ => ()
-                }
-
-                {
-                    self.computed.pos = pos;
-                    self.computed.size = size;
-                    self.computed.color = self.style.color.as_color();
-                    self.computed.border_color = self.style.border_color.as_color();
-                    self.computed.border = self.style.border;
-                    self.computed.corner = self.style.corner.pixelx(size);
-                    self.computed.order = context.order;
-                }
-
-                let mut context = BuildContext::new_from(context, size, pos, &self.computed as _);
-
-                for element in &mut self.childs {
-                    element.build(&mut context);
-                    context.order += 1;
-                }
-
-                let text = unsafe { (text as *const Text).cast_mut().as_mut().unwrap_unchecked() };
-
-                text.build_text(size, pos, unsafe { &*context.font });
-                self.dirty = false;
+                text.build(self_copy, context);
             },
             UiType::Slider(slider) => {
-
-                let size = Vec2::new(
-                    self.style.width.width(context.parent_size) - slider.padding * 2.0,
-                    self.style.height.height(context.parent_size) - slider.padding * 2.0
-                );
-
-                let mut pos = Vec2::new(
-                    match self.style.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(context.parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(context.parent_size) - size.x
-                        },
-                        Align::Center() => {
-                            (context.parent_size.x - size.x) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                    match self.style.y {
-                        Align::Top(unit) => {
-                            unit.pixely(context.parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                        },
-                        Align::Center() => {
-                            (context.parent_size.y - size.y) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                );
-
-                pos += context.parent_pos;
-
-                match self.mode {
-                    RenderMode::Inline => {
-                        pos += context.start_pos;
-                        context.start_pos += size + slider.padding * 2.0;
-                    }
-                    _ => ()
-                }
-
-                {
-                    self.computed.pos = pos;
-                    self.computed.size = size;
-                    self.computed.color = self.style.color.as_color();
-                    self.computed.border_color = self.style.border_color.as_color();
-                    self.computed.border = self.style.border;
-                    self.computed.corner = self.style.corner.pixelx(size);
-                    self.computed.order = context.order;
-                }
-
-                let mut context = BuildContext::new_from(context, size - slider.padding * 2.0, pos + slider.padding, &self.computed as _);
-
-                self.childs[0].build(&mut context);
-                context.order += 1;
-                context.parent_pos.x += slider.padding;
-                self.childs[1].build(&mut context);
-                self.dirty = false;
+                slider.build(self_copy, context);
             },
             UiType::Image(image) => {
-                let size = Vec2::new(
-                    self.style.width.width(context.parent_size),
-                    self.style.height.height(context.parent_size)
-                );
-
-                let mut pos = Vec2::new(
-                    match self.style.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(context.parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(context.parent_size) - size.x
-                        },
-                        Align::Center() => {
-                            (context.parent_size.x - size.x) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                    match self.style.y {
-                        Align::Top(unit) => {
-                            unit.pixely(context.parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                        },
-                        Align::Center() => {
-                            context.parent_size.y * 0.5 - size.y
-                        },
-                        _ => panic!()
-                    },
-                );
-
-                pos += context.parent_pos;
-
-                match self.mode {
-                    RenderMode::Inline => {
-                        pos += context.start_pos;
-                        context.start_pos += size;
-                    }
-                    _ => ()
-                }
-
-                {
-                    self.computed.pos = pos;
-                    self.computed.size = size;
-                    self.computed.color = Color::new(f32::from_bits(image.index as u32), 0.0, 0.0, 0.0);
-                    self.computed.border_color = self.style.border_color.as_color();
-                    self.computed.border = self.style.border;
-                    self.computed.corner = self.style.corner.pixelx(size);
-                    self.computed.mode = 3;
-                    self.computed.order = context.order;
-                }
-                self.dirty = false;
+                image.build(self_copy, context);
             }
             _ => {
-                let size = Vec2::new(
-                    self.style.width.width(context.parent_size),
-                    self.style.height.height(context.parent_size)
-                );
 
-                let mut pos = Vec2::new(
-                    match self.style.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(context.parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(context.parent_size) - size.x
-                        },
-                        Align::Center() => {
-                            (context.parent_size.x - size.x) * 0.5
-                        },
-                        _ => panic!()
+                let size;
+                let mut pos;
+
+                match &self.style {
+                    Style::Absolute(absolute) => {
+                        size = Vec2::new(
+                            absolute.width.width(context.parent_size),
+                            absolute.height.height(context.parent_size)
+                        );
+
+                        pos = Vec2::new(
+                            match absolute.x {
+                                Align::Left(unit) => {
+                                    unit.pixelx(context.parent_size)
+                                },
+                                Align::Right(unit) => {
+                                    -unit.pixelx(context.parent_size) - size.x
+                                },
+                                Align::Center() => {
+                                    (context.parent_size.x - size.x) * 0.5
+                                },
+                                _ => panic!()
+                            },
+                            match absolute.y {
+                                Align::Top(unit) => {
+                                    unit.pixely(context.parent_size)
+                                },
+                                Align::Bottom(unit) => {
+                                    context.parent_size.y - unit.pixely(context.parent_size) - size.y
+                                },
+                                Align::Center() => {
+                                    (context.parent_size.y - size.y) * 0.5 
+                                },
+                                _ => panic!()
+                            },
+                        );
+
+                        self.computed.color = absolute.color.as_color();
+                        self.computed.border_color = absolute.border_color.as_color();
+                        self.computed.border = absolute.border[0];
+                        self.computed.corner = absolute.corner[0].pixelx(size);
                     },
-                    match self.style.y {
-                        Align::Top(unit) => {
-                            unit.pixely(context.parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                        },
-                        Align::Center() => {
-                            (context.parent_size.y - size.y) * 0.5 
-                        },
-                        _ => panic!()
-                    },
-                );
+                    Style::Inline(inline) => {
+                        size = Vec2::new(
+                            inline.width.width(context.parent_size),
+                            inline.height.height(context.parent_size)
+                        );
+
+                        pos = Vec2::new(0.0, 0.0);
+
+                        if context.parent_size.x - context.start_pos.x - context.parent_pos.x >= size.x {
+                            pos.x += context.start_pos.x;
+                            context.start_pos.x += size.x;
+                        } else {
+                            pos.y += context.start_pos.y;
+                            context.start_pos.y += size.y;
+                        }
+
+                        self.computed.color = inline.color.as_color();
+                        self.computed.border_color = inline.border_color.as_color();
+                        self.computed.border = inline.border[0];
+                        self.computed.corner = inline.corner[0].pixelx(size);
+                    }
+                }
 
                 pos += context.parent_pos;
-
-                match self.mode {
-                    RenderMode::Inline => {
-                        pos += context.start_pos;
-                        context.start_pos += size;
-                    }
-                    _ => ()
-                }
 
                 {
                     self.computed.pos = pos;
                     self.computed.size = size;
-                    self.computed.color = self.style.color.as_color();
-                    self.computed.border_color = self.style.border_color.as_color();
-                    self.computed.border = self.style.border;
-                    self.computed.corner = self.style.corner.pixelx(size);
                     self.computed.order = context.order;
                 }
 
@@ -309,21 +159,21 @@ impl UiElement {
     }
 
     #[inline(always)]
-    pub fn get_offset(&self) -> f32 {
+    pub fn get_offset(&self) -> Vec2 {
         if self.parent.is_null() {
-            return 0.0;
+            return Vec2::default();
         } else {
             let parent = unsafe { &*self.parent };
-                let offset;
+            let offset;
 
-                if self.computed.order > 0 {
-                    let child = &parent.childs[self.computed.order as usize - 1];
-                    offset = child.computed.pos.y - parent.computed.pos.y + child.computed.size.y;
-                } else {
-                    offset = 0.;
-                }
+            if self.computed.order > 0 {
+                let child = &parent.childs[self.computed.order as usize - 1];
+                offset = child.computed.pos - parent.computed.pos + child.computed.size;
+            } else {
+                offset = Vec2::default();
+            }
 
-                offset
+            offset
         }
     }
 
@@ -343,45 +193,67 @@ impl UiElement {
             _ => &self.style,
         };
 
-        self.computed.size.x = style.width.width(parent_size);
-        self.computed.size.y = style.height.height(parent_size);
-        self.computed.pos.x = match style.x {
-            Align::Left(unit) => {
-                unit.pixelx(parent_size) + parent_pos.x
-            },
-            Align::Right(unit) => {
-                parent_size.x - unit.pixelx(parent_size) - self.computed.size.x + parent_pos.x
-            },
-            Align::Center() => {
-                (parent_size.x - self.computed.size.x) * 0.5 + parent_pos.x
-            },
-            _ => panic!()
-        };
-        self.computed.pos.y = match style.y {
-            Align::Top(unit) => {
-                unit.pixely(parent_size) + parent_pos.y
-            },
-            Align::Bottom(unit) => {
-                parent_size.y - unit.pixely(parent_size) - self.computed.size.y + parent_pos.y
-            },
-            Align::Center() => {
-                (parent_size.y - self.computed.size.y) * 0.5 + parent_pos.y
-            },
-            _ => panic!()
-        };
+        match style {
+            Style::Absolute(absolute) => {
+                self.computed.size = Vec2::new(
+                    absolute.width.width(parent_size),
+                    absolute.height.height(parent_size)
+                );
 
-        match self.mode {
-            RenderMode::Inline => {
-                let self_ptr = unsafe { &*(*&self as *const UiElement) };
-                self.computed.size.y += self_ptr.get_offset();
-            },
-            _ => ()
-        }
+                self.computed.pos = Vec2::new(
+                    match absolute.x {
+                        Align::Left(unit) => {
+                            unit.pixelx(parent_size)
+                        },
+                        Align::Right(unit) => {
+                            -unit.pixelx(parent_size) - self.computed.size.x
+                        },
+                        Align::Center() => {
+                            (parent_size.x - self.computed.size.x) * 0.5
+                        },
+                        _ => panic!()
+                    },
+                    match absolute.y {
+                        Align::Top(unit) => {
+                            unit.pixely(parent_size)
+                        },
+                        Align::Bottom(unit) => {
+                            parent_size.y - unit.pixely(parent_size) - self.computed.size.y
+                        },
+                        Align::Center() => {
+                            (parent_size.y - self.computed.size.y) * 0.5 
+                        },
+                        _ => panic!()
+                    },
+                );
 
-        self.computed.color = style.color.as_color();
-        self.computed.border = style.border;
-        self.computed.border_color = style.border_color.as_color();
-        self.computed.corner = style.corner.pixelx(self.computed.size);
+                self.computed.color = absolute.color.as_color();
+                self.computed.border_color = absolute.border_color.as_color();
+                self.computed.border = absolute.border[0];
+                self.computed.corner = absolute.corner[0].pixelx(self.computed.size);
+            },
+            Style::Inline(inline) => {
+                self.computed.size = Vec2::new(
+                    inline.width.width(parent_size),
+                    inline.height.height(parent_size)
+                );
+
+                self.computed.pos = Vec2::new(0.0, 0.0);
+
+                let start_pos = self.get_offset();
+
+                if parent_size.x - start_pos.x - parent_pos.x >= self.computed.size.x {
+                    self.computed.pos.x += start_pos.x;
+                } else {
+                    self.computed.pos.y += start_pos.y;
+                }
+
+                self.computed.color = inline.color.as_color();
+                self.computed.border_color = inline.border_color.as_color();
+                self.computed.border = inline.border[0];
+                self.computed.corner = inline.corner[0].pixelx(self.computed.size);
+            }
+        };
 
         if let UiType::Text(text) = &mut self.inherit {
             text.build_text(self.computed.size, self.computed.pos, font);
@@ -407,7 +279,7 @@ impl UiElement {
         //1 = new event
         //2 = old event
 
-        if self.mode == RenderMode::Inline || !self.visible {
+        if !self.visible {
             return 0;
         }
 
@@ -490,6 +362,6 @@ impl UiElement {
 
 impl Default for UiElement {
     fn default() -> Self {
-        Self { style: Default::default(), childs: Default::default(), mode: RenderMode::Absolute, visible: true, dirty: false, computed: RawUiElement::default(), parent: null(), inherit: UiType::Block() }
+        Self { style: Default::default(), childs: Default::default(), visible: true, dirty: false, computed: RawUiElement::default(), parent: null(), inherit: UiType::Block() }
     }
 }

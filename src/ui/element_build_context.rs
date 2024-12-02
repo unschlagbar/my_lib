@@ -4,8 +4,6 @@ use crate::primitives::Vec2;
 
 use super::{Font, RawUiElement};
 
-
-
 pub struct BuildContext {
     pub parent_size: Vec2,
     pub parent_pos: Vec2,
