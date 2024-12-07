@@ -1,5 +1,5 @@
 
-use super::{Button, DragBox, Slider, Text, TextInput, UiImage};
+use super::{Button, CheckBox, DragBox, Slider, Text, TextInput, UiImage};
 
 #[derive(Debug, Clone)]
 pub enum UiType {
@@ -10,5 +10,6 @@ pub enum UiType {
     Image(UiImage),
     TextInput(TextInput),
     DragBox(DragBox),
+    CheckBox(CheckBox),
     Slider(Slider),
 }

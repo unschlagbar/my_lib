@@ -1,8 +1,7 @@
-use std::ptr::null;
 
 use crate::{graphics::formats::RGBA, primitives::Vec2};
 
-use super::{Align, BuildContext, RawUiElement, Style, UiElement, UiType};
+use super::{Align, BuildContext, Style, UiElement, UiType};
 
 #[derive(Debug, Clone)]
 pub struct Slider {
@@ -18,16 +17,13 @@ impl Slider {
         let mut childs = Vec::with_capacity(2);
         childs.push(UiElement::inline(Style::infill(5.0, infill_color), Vec::with_capacity(0)));
         childs.push(UiElement::new(Style::toggle(grip_color), Vec::with_capacity(0)));
-        UiElement { style,
-            visible: true,
-            dirty: true,
-            parent: null(),
+        UiElement::extend(
+            style,
             childs,
-            computed: RawUiElement::default(),
-            inherit: UiType::Slider(
-                Self::slider(min_value, max_value, value),
-            )
-        }
+            UiType::Slider(
+               Self::slider(min_value, max_value, value),
+            )   
+        )
     }
 
     pub const fn slider(min_value: f32, max_value: f32, value: f32) -> Self {

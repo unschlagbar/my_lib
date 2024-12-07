@@ -1,8 +1,7 @@
-use std::ptr::null;
 
 use crate::{graphics::formats::Color, primitives::Vec2};
 
-use super::{Align, BuildContext, RawUiElement, Style, UiElement};
+use super::{Align, BuildContext, Style, UiElement};
 
 
 
@@ -13,14 +12,11 @@ pub struct UiImage {
 
 impl UiImage {
     pub fn new(style: Style, index: u8) -> UiElement {
-        UiElement { style,
-            visible: true, 
-            dirty: true,
-            parent: null(),
-            childs: Vec::with_capacity(0),
-            computed: RawUiElement::default(),
-            inherit: super::UiType::Image(Self { index })
-        }
+        UiElement::extend(
+            style,
+            Vec::with_capacity(0),
+            super::UiType::Image(Self { index })
+        )
     }
 
     pub fn build(&self, element: &mut UiElement, context: &mut BuildContext) {

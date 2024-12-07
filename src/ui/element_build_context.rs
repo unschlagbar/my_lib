@@ -19,6 +19,6 @@ impl BuildContext {
     }
 
     pub fn new_from(context: &Self, parent_size: Vec2, parent_pos: Vec2, parent: *const RawUiElement) -> Self {
-        Self { parent_size, parent_pos, start_pos: context.start_pos, parent, order: 0, font: context.font }
+        Self { parent_size, parent_pos, start_pos: Vec2::default(), parent, order: 0, font: context.font }
     }
 }

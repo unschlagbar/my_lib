@@ -2,12 +2,12 @@ use crate::primitives::Vec2;
 
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum UiSize {
-    Fill(),
-    Undefined(),
-    Auto(),
+    Fill,
+    Undefined,
+    Auto,
     AutoMin(UIUnit),
     AutoMax(UIUnit),
     AutoMinMax(UIUnit, UIUnit),
@@ -24,13 +24,13 @@ impl UiSize {
     #[inline]
     pub fn width(&self, parent_size: Vec2) -> f32 {
         match self {
-            Self::Fill() => {
+            Self::Fill => {
                 parent_size.x
             },
-            Self::Undefined() => {
+            Self::Undefined => {
                 0.0
             },
-            Self::Auto() => {
+            Self::Auto => {
                 100.0
             },
             Self::AutoMin(min) => {
@@ -66,13 +66,13 @@ impl UiSize {
     #[inline]
     pub fn height(&self, parent_size: Vec2) -> f32 {
         match self {
-            Self::Fill() => {
+            Self::Fill => {
                 parent_size.y
             },
-            Self::Undefined() => {
+            Self::Undefined => {
                 0.0
             },
-            Self::Auto() => {
+            Self::Auto => {
                 50.0
             },
             Self::AutoMin(min) => {
@@ -116,11 +116,11 @@ pub enum Align {
     Center(),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum UIUnit {
-    Zero(),
-    Undefined(),
+    Zero,
+    Undefined,
     Pixel(f32),
     Relative(f32),
     RelativeHeight(f32),
@@ -132,10 +132,10 @@ impl UIUnit {
     #[inline]
     pub fn pixelx(&self, parent_size: Vec2) -> f32 {
         match self {
-            Self::Zero() => {
+            Self::Zero => {
                 0.0
             },
-            Self::Undefined() => {
+            Self::Undefined => {
                 f32::NAN
             },
             Self::Pixel(pixel) => {
@@ -156,10 +156,10 @@ impl UIUnit {
     #[inline]
     pub fn pixely(&self, parent_size: Vec2) -> f32 {
         match self {
-            Self::Zero() => {
+            Self::Zero => {
                 0.0
             },
-            Self::Undefined() => {
+            Self::Undefined => {
                 f32::NAN
             },
             Self::Pixel(pixel) => {

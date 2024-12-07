@@ -1,7 +1,7 @@
-use std::{ptr::null, rc::Rc};
+use std::rc::Rc;
 use core::fmt::Debug;
 
-use super::{RawUiElement, Style, UiElement, UiType};
+use super::{Style, UiElement, UiType};
 
 #[derive(Clone)]
 pub struct TextInput {
@@ -11,16 +11,12 @@ pub struct TextInput {
 }
 
 impl TextInput {
-    pub const fn new(style: Style, enabled_style: Style) -> UiElement {
-        UiElement {
+    pub fn new(style: Style, enabled_style: Style) -> UiElement {
+        UiElement::extend(
             style,
-            visible: true,
-            dirty: true,
-            parent: null(),
-            childs: vec![],
-            computed: RawUiElement::default(),
-            inherit: UiType::TextInput(Self::text_input(enabled_style))
-        }
+            vec![],
+            UiType::TextInput(Self::text_input(enabled_style))
+        )
     }
 
     pub const fn text_input(enabled_style: Style) -> Self {

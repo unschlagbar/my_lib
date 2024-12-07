@@ -1,7 +1,6 @@
-use std::ptr::null;
 use core::fmt::Debug;
 
-use super::{callback::{self, ErasedFnPointer}, RawUiElement, Style, UiElement, UiState, UiType};
+use super::{callback::ErasedFnPointer, Style, UiElement, UiState, UiType};
 
 #[derive(Clone)]
 pub struct Button {
@@ -14,16 +13,12 @@ pub struct Button {
 }
 
 impl Button {
-    pub const fn new(style: Style, hover_style: Style, press_style: Style, childs: Vec<UiElement>) -> UiElement {
-        UiElement {
+    pub  fn new(style: Style, hover_style: Style, press_style: Style, childs: Vec<UiElement>) -> UiElement {
+        UiElement::extend(
             style,
-            visible: true,
-            dirty: true,
             childs,
-            parent: null(),
-            computed: RawUiElement::default(),
-            inherit: UiType::Button(Self::button(hover_style, press_style))
-        }
+            UiType::Button(Self::button(hover_style, press_style))
+        )
     }
 
     pub const fn button(hover_style: Style, press_style: Style) -> Self {
@@ -31,11 +26,11 @@ impl Button {
     }
 
     pub fn on_press<S>(&mut self, struct_pointer: &mut S, fp: fn(&mut S, &mut UiState)) {
-        self.on_press = callback::ErasedFnPointer::from_associated(struct_pointer, fp);
+        self.on_press = ErasedFnPointer::from_associated(struct_pointer, fp);
     }
 
     pub fn before_press<S>(&mut self, struct_pointer: &mut S, fp: fn(&mut S, &mut UiState)) {
-        self.before_press = callback::ErasedFnPointer::from_associated(struct_pointer, fp);
+        self.before_press = ErasedFnPointer::from_associated(struct_pointer, fp);
     }
     
 }

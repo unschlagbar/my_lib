@@ -17,6 +17,7 @@ mod dragbox;
 mod rendermode;
 mod slider;
 mod element_build_context;
+mod checkbox;
 
 pub use ui_div::UiDiv;
 pub use ui_hover_block::UiHoverBlock;
@@ -38,6 +39,7 @@ pub use text_input::TextInput;
 pub use ui_element::UiElement;
 pub use builder::UiBuilder;
 pub use dragbox::DragBox;
+pub use checkbox::CheckBox;
 pub use rendermode::RenderMode;
 pub use slider::Slider;
 pub(crate) use element_build_context::BuildContext;

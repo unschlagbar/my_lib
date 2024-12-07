@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 
-use ash::vk;
+use ash::vk::{self, MemoryAllocateFlags};
 
 use super::{SinlgeTimeCommands, VkBase};
 
@@ -23,7 +23,7 @@ impl Buffer {
         let mem_requirements = unsafe { base.device.get_buffer_memory_requirements(buffer) };
 
         let alloc_flags_info = vk::MemoryAllocateFlagsInfo {
-            flags: vk::MemoryAllocateFlags::DEVICE_ADDRESS,  // Aktiviert die Nutzung von Geräteadressen
+            flags: if usage.contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS) {vk::MemoryAllocateFlags::DEVICE_ADDRESS} else {MemoryAllocateFlags::empty()},  // Aktiviert die Nutzung von Geräteadressen
             ..Default::default()
         };
     

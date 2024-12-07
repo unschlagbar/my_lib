@@ -1,6 +1,4 @@
-use std::ptr::null;
-
-use super::{BasicAlign, RawUiElement, Style, UiElement, UiType};
+use super::{BasicAlign, Style, UiElement, UiType};
 
 
 #[derive(Debug, Clone)]
@@ -13,15 +11,11 @@ pub struct DragBox {
 }
 
 impl DragBox {
-    pub const fn new(style: Style) -> UiElement {
-        UiElement {
+    pub fn new(style: Style) -> UiElement {
+        UiElement::extend(
             style,
-            visible: true,
-            dirty: true,
-            parent: null(),
-            childs: vec![],
-            computed: RawUiElement::default(),
-            inherit: UiType::DragBox(Self { grip_height: 20.0, snap_strenght: 50.0, align: BasicAlign::Center, pressed: false, move_parrent: true }),
-        }
+            vec![],
+            UiType::DragBox(Self { grip_height: 20.0, snap_strenght: 50.0, align: BasicAlign::Center, pressed: false, move_parrent: true })
+        )
     }
 }

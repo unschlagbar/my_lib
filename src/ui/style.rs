@@ -11,10 +11,18 @@ pub enum Style {
 }
 
 impl Style {
-    pub const FULL: Self = Self::Inline( Inline {margin: [UIUnit::Zero(); 4], padding: [UIUnit::Zero(); 4], width: UiSize::Size(UIUnit::Relative(1.0)), height: UiSize::Size(UIUnit::Relative(1.0)), color: RGBA::WHITE, border_color: RGBA::BLACK, border: [1.0; 4], corner: [UIUnit::Zero(); 4]} );
+    pub const FULL: Self = Self::Inline( Inline {margin: [UIUnit::Zero; 4], padding: [UIUnit::Zero; 4], width: UiSize::Size(UIUnit::Relative(1.0)), height: UiSize::Size(UIUnit::Relative(1.0)), color: RGBA::WHITE, border_color: RGBA::BLACK, border: [1.0; 4], corner: [UIUnit::Zero; 4]} );
     
     pub fn infill(padding: f32, color: RGBA) -> Self {
-        Self::Inline(Inline { margin: [UIUnit::Zero(); 4], padding: [UIUnit::Pixel(padding); 4], width: UiSize::Fill(), height: UiSize::Fill(), color, border_color: color, border: [0.0; 4], corner: [UIUnit::RelativeHeight(0.5); 4] })
+        Self::Inline(Inline { margin: [UIUnit::Zero; 4], padding: [UIUnit::Pixel(padding); 4], width: UiSize::Fill, height: UiSize::Fill, color, border_color: color, border: [0.0; 4], corner: [UIUnit::RelativeHeight(0.5); 4] })
+    }
+
+    pub fn label(color: RGBA, corner: UIUnit, width: UiSize) -> Self {
+        Self::Inline(Inline { margin: [UIUnit::Zero; 4], padding: [UIUnit::Zero; 4], width, height: UiSize::Auto, color, border_color: color, border: [0.0; 4], corner: [corner; 4] })
+    }
+
+    pub fn text(color: RGBA, margin: UIUnit, size: UIUnit) -> Self {
+        Self::Inline(Inline { margin: [margin; 4], padding: [UIUnit::Zero; 4], width: UiSize::Auto, height: UiSize::Size(size), color, border_color: color, border: [0.0; 4], corner: [UIUnit::Zero; 4] })
     }
 
     pub fn toggle(color: RGBA) -> Self {
@@ -25,14 +33,14 @@ impl Style {
         Self::Absolute(Absolute { x, y, width, height, color, border_color, border: [border; 4], corner: [corner; 4] })
     }
 
-    pub const fn inline(color: RGBA, border_color: RGBA, border: f32, corner: UIUnit) -> Self {
-        Self::Inline(Inline { margin: [UIUnit::Zero(); 4], padding: [UIUnit::Zero(); 4], width: UiSize::Fill(), height: UiSize::Auto(), color, border_color, border: [border; 4], corner: [corner; 4] })
+    pub const fn inline(margin: UIUnit, color: RGBA, border_color: RGBA, border: f32, corner: UIUnit, width: UiSize, height: UiSize) -> Self {
+        Self::Inline(Inline { margin: [margin; 4], padding: [UIUnit::Zero; 4], width, height, color, border_color, border: [border; 4], corner: [corner; 4] })
     }
 }
 
 impl Default for Style {
     fn default() -> Self {
-        Self::Inline(Inline { margin: [UIUnit::Zero(); 4], padding: [UIUnit::Zero(); 4], width: UiSize::Auto(), height: UiSize::Auto(), color: RGBA::WHITE, border_color: RGBA::BLACK, border: [1.0; 4], corner: [UIUnit::Pixel(5.0); 4] })
+        Self::Inline(Inline { margin: [UIUnit::Zero; 4], padding: [UIUnit::Zero; 4], width: UiSize::Auto, height: UiSize::Auto, color: RGBA::WHITE, border_color: RGBA::BLACK, border: [1.0; 4], corner: [UIUnit::Pixel(5.0); 4] })
     }
 }
 

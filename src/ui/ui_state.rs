@@ -1,14 +1,15 @@
 
-use cgmath::Vector2;
-use crate::{graphics::{UiInstance, VertexUi}, primitives::Vec2};
+use std::ptr::null_mut;
+
+use crate::{graphics::UiInstance, primitives::Vec2};
 use super::{raw_ui_element::UiEvent, BuildContext, Font, Style, UiElement, UiType};
 
 #[derive(Debug)]
 pub struct UiState {
     elements: Vec<UiElement>,
     //styles: Vec<Style>,
-    pub selected: Option<*const UiElement>,
-    pub pressed: Option<*const UiElement>,
+    pub selected: *mut UiElement,
+    pub pressed: *mut UiElement,
     pub cursor_pos: Vec2,
     pub font: Font,
     pub visible: bool,
@@ -16,18 +17,9 @@ pub struct UiState {
 }
 
 impl UiState {
-    pub const fn get_vertices() -> [VertexUi; 4] {
-        let vertices = [
-            VertexUi { uv: Vector2 { x: 0.0, y: 0.0 }},
-            VertexUi { uv: Vector2 { x: 1.0, y: 0.0 }},
-            VertexUi { uv: Vector2 { x: 0.0, y: 1.0 }},
-            VertexUi { uv: Vector2 { x: 1.0, y: 1.0 }}
-        ];
-        vertices
-    }
 
     pub fn create(elements: Vec<UiElement>, _styles: Vec<Style>, visible: bool) -> UiState {
-        UiState { visible, elements, dirty: false, cursor_pos: Vec2::default(), selected: None, pressed: None, font: Font::parse_from_bytes(include_bytes!("C:/Dev/vudeljump/font/std1.fef")) }
+        UiState { visible, elements, dirty: false, cursor_pos: Vec2::default(), selected: null_mut(), pressed: null_mut(), font: Font::parse_from_bytes(include_bytes!("C:/Dev/vudeljump/font/std1.fef")) }
     }
 
     pub fn font(&mut self, font: Font) {
@@ -36,8 +28,8 @@ impl UiState {
 
     pub fn build(&mut self, ui_size: Vec2) {
 
-        self.selected = None;
-        self.pressed = None;
+        self.selected = null_mut();
+        self.pressed = null_mut();
 
         let mut build_context = BuildContext::default(&self.font, ui_size);
         
@@ -85,13 +77,17 @@ impl UiState {
 
     pub fn update_cursor(&mut self, ui_size: Vec2, cursor_pos: Vec2, event: UiEvent) -> u8 {
 
+        //0 = no event
+        //1 = no event break
+        //2 = old event
+        //3 = new event
         let mut bol = 0;
 
         let ui = unsafe { &mut *(self as *const UiState).cast_mut() };
 
         for i in &mut self.elements {
             let result = i.update_cursor(ui, ui_size, Vec2::default(), cursor_pos, event);
-            if result != 0 {
+            if result > 0 {
                 bol = result;
                 break;
             }
@@ -99,71 +95,89 @@ impl UiState {
 
         //Not old event
         if bol != 2 {
-            if let Some(selected) = self.selected {
-                let selected = unsafe { &mut *selected.cast_mut() };
+            if !self.selected.is_null() && bol < 2 {
+                let selected = unsafe { &mut *self.selected };
+                println!("{}", bol);
 
-                //No event
-                if bol == 0 {
-                    self.selected = None;
-                    match &mut selected.inherit {
-                        UiType::Button(button) => {
-                            if button.selected {
-                                button.selected = false;
-                                selected.dirty = true;
-                                self.dirty = true;
-                                return 1;
-                            }
+                self.selected = null_mut();
+                match &mut selected.inherit {
+                    UiType::Button(button) => {
+                        if button.selected {
+                            button.selected = false;
+                            selected.dirty = true;
+                            self.dirty = true;
+                            return 3;
                         }
-                        _ => todo!()
+                    },
+                    UiType::CheckBox(checkbox) => {
+                        if checkbox.selected {
+                            checkbox.selected = false;
+                            selected.dirty = true;
+                            self.dirty = true;
+                            return 3;
+                        }
                     }
+                    _ => todo!()
                 }
             } 
-            
-            if let Some(pressed) = self.pressed {
+            if !self.pressed.is_null() {
+                let element = unsafe { &mut *self.pressed };
+                let is_in = element.is_in(cursor_pos);
                 match event {
-                    UiEvent::Release => {
-                        let element = unsafe { &mut *pressed.cast_mut() };
-                        let element_copy = unsafe { & *pressed };
-                        match &mut element.inherit {
-                            UiType::Button(button) => {
-                                button.pressed = false;
-                                self.pressed = None;
-                                element.dirty = true;
-                                bol = 1;
-                                if element_copy.is_in(cursor_pos) {
-                                    button.on_press.call(ui);
+                    UiEvent::Move => {
+                        match &element.inherit {
+                            UiType::DragBox(_) => {
+                                match element.style {
+                                    Style::Inline(_) if !element.parent.is_null() => {
+                                        let parent = unsafe { &mut *element.parent };
+                                        parent.move_computed(cursor_pos - self.cursor_pos);
+                                    },
+                                    _ => element.computed.pos += cursor_pos - self.cursor_pos,
                                 }
-                            },
-                            UiType::DragBox(dragbox) => {
-                                dragbox.pressed = false;
-                                self.pressed = None;
-                                println!("released");
+                                bol = 3;
                             }
                             _ => ()
                         }
                     },
-                    UiEvent::Move => {
-                        let element = unsafe { &mut *pressed.cast_mut() };
+                    UiEvent::Release => {
                         match &mut element.inherit {
-                            UiType::DragBox(_) => {
-                                match element.style {
-                                    Style::Inline(_) if !element.parent.is_null() => {
-                                        let parent = unsafe { &mut *(element.parent as *mut UiElement) };
-                                        parent.computed.pos += cursor_pos - self.cursor_pos;
-                                    },
-                                    _ => element.computed.pos += cursor_pos - self.cursor_pos
+                            UiType::Button(button) => {
+                                button.pressed = false;
+                                self.pressed = null_mut();
+                                element.dirty = true;
+                                bol = 3;
+                                if is_in {
+                                    button.on_press.call(ui);
                                 }
-                                bol = 1;
-                            }
+                            },
+                            UiType::CheckBox(checkbox) => {
+                                checkbox.pressed = false;
+                                self.pressed = null_mut();
+                                element.dirty = true;
+                                bol = 3;
+                                if is_in {
+                                    if checkbox.enabled {
+                                        checkbox.on_disable.call(ui);
+                                    } else {
+                                        checkbox.on_enable.call(ui);
+                                    }
+                                    checkbox.enabled = !checkbox.enabled;
+                                }
+                            },
+                            UiType::DragBox(dragbox) => {
+                                dragbox.pressed = false;
+                                self.pressed = null_mut();
+                                println!("released");
+                            },
                             _ => ()
                         }
-                    }
-                    _ => ()
+                    },
+                    _ => (),
                 }
             }
         }
         //New event
-        if bol == 1 { self.dirty = true }
+        if bol == 3 { self.dirty = true }
         self.cursor_pos = cursor_pos;
         bol
     }

@@ -38,14 +38,17 @@ pub struct RGBA {
 impl RGBA {
     pub const ZERO: RGBA = RGBA { r: 0, g: 0, b: 0, a: 0 };
 
-    pub const BLACK: RGBA = RGBA { r: 0, g: 0, b: 0, a: 1 };
-    pub const GREY: RGBA = RGBA { r: 10, g: 100, b: 100, a: 1 };
-    pub const WHITE: RGBA = RGBA { r: 255, g: 255, b: 255, a: 1 };
-    pub const GREEN: RGBA = RGBA { r: 0, g: 120, b: 20, a: 1 };
-    pub const BLUE: RGBA = RGBA { r: 0, g: 0, b: 255, a: 1 };
-    pub const RED: RGBA = RGBA { r: 255, g: 0, b: 0, a: 1 };
-    pub const PURPLE: RGBA = RGBA { r: 255, g: 0, b: 255, a: 1 };
-    pub const PINK: RGBA = RGBA { r: 255, g: 150, b: 150, a: 1 };
+    pub const BLACK: RGBA = RGBA { r: 0, g: 0, b: 0, a: 255 };
+    pub const GREY: RGBA = RGBA { r: 80, g: 80, b: 80, a: 255 };
+    pub const WHITE: RGBA = RGBA { r: 255, g: 255, b: 255, a: 255 };
+    pub const GREEN: RGBA = RGBA { r: 0, g: 120, b: 20, a: 255 };
+    pub const BLUE: RGBA = RGBA { r: 0, g: 0, b: 255, a: 255 };
+    pub const RED: RGBA = RGBA { r: 255, g: 0, b: 0, a: 255 };
+    pub const PURPLE: RGBA = RGBA { r: 255, g: 0, b: 255, a: 255 };
+    pub const PINK: RGBA = RGBA { r: 255, g: 150, b: 150, a: 255 };
+
+    pub const LIGHTGREY: RGBA = RGBA { r: 175, g: 175, b: 175, a: 255 };
+    pub const TRANSPARENT: RGBA = RGBA { r: 0, g: 0, b: 0, a: 0 };
 
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         RGBA { r, g, b, a }

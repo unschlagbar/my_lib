@@ -102,26 +102,42 @@ impl VkBase {
         extension.push(ext::debug_utils::NAME.as_ptr() as _);
 
 
-        const LAYER_NAMES: &[*const i8] = {
+        const LAYER_NAMES: &[&CStr] = {
             if cfg!(debug_assertions) && cfg!(target_os = "windows") {
                 unsafe { 
                     &[
-                        std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0").as_ptr() as *const _,
-                        std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_LUNARG_monitor\0").as_ptr() as *const _,
+                        std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0"),
+                        std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_LUNARG_monitor\0"),
                     ]
                 }
             } else if cfg!(target_os = "android") {
-                &[unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0").as_ptr() as *const _}]
+                &[unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") }]
             } else {
-                &[unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_LUNARG_monitor\0").as_ptr() } as *const _,]
+                &[unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_LUNARG_monitor\0") }]
             }
         };
 
+        let supported_layers: Vec<vk::LayerProperties> = unsafe {
+            entry.enumerate_instance_layer_properties().unwrap()
+        };
+    
+        // Layer filtern, die in LAYER_NAMES definiert sind und unterstützt werden
+        let active_layers: Vec<*const c_char> = LAYER_NAMES.iter().filter_map(|&layer_name| {
+            if supported_layers.iter().any(|prop| {
+                let prop_name = unsafe { std::ffi::CStr::from_ptr(prop.layer_name.as_ptr()) };
+                prop_name == layer_name
+            }) {
+                Some(layer_name.as_ptr())
+            } else {
+                None
+            }
+        }).collect();
+    
         let create_info = vk::InstanceCreateInfo {
             p_application_info: &app_info,
-            enabled_layer_count: LAYER_NAMES.len() as _,
+            enabled_layer_count: active_layers.len() as _,
             enabled_extension_count: extension.len() as _,
-            pp_enabled_layer_names: LAYER_NAMES.as_ptr() as *const _,
+            pp_enabled_layer_names: active_layers.as_ptr(),
             pp_enabled_extension_names: extension.as_ptr() as _,
             ..Default::default()
         };
@@ -146,10 +162,7 @@ impl VkBase {
                 instance.enumerate_device_extension_properties(device).unwrap()
             };
     
-            let supported_extensions: Vec<&CStr> = extension_properties
-                .iter()
-                .map(|ext| unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) })
-                .collect();
+            let supported_extensions: Vec<&CStr> = extension_properties.iter().map(|ext| unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) }).collect();
     
             let all_supported = rt_extensions.iter().all(|required| {
                 supported_extensions.iter().any(|&supported| supported == *required)
@@ -160,7 +173,6 @@ impl VkBase {
             }
         }
     
-        // Kein geeignetes Gerät gefunden
         (devices[0], 0)
     }
 

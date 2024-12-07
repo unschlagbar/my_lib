@@ -1,14 +1,10 @@
-use std::ptr::null;
 
-use crate::{graphics::{formats::RGBA, UiInstance}, primitives::Vec2};
+use crate::{graphics::UiInstance, primitives::Vec2, ui::UiSize};
 
-use super::{Align, BuildContext, Font, RawUiElement, Style, UIUnit, UiElement, UiType};
+use super::{Align, BuildContext, Style, UiElement, UiType};
 
 #[derive(Debug, Clone)]
 pub struct Text {
-    pub color: RGBA,
-    pub size: UIUnit,
-    pub margin: (UIUnit, UIUnit, UIUnit, UIUnit),
     pub font: u16,
     pub text: Vec<u8>,
     pub comp_text: Vec<UiInstance>,
@@ -16,20 +12,16 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn new(style: Style, color: RGBA, size: UIUnit, font: u16, text: Vec<u8>, mode: u8, margin: (UIUnit, UIUnit, UIUnit, UIUnit)) -> UiElement {
-        UiElement { 
-            style, 
-            visible: true, 
-            dirty: false, 
-            childs: Vec::with_capacity(0),
-            parent: null(),
-            computed: RawUiElement::default(), 
-            inherit: UiType::Text(Self::text(color, size, font, text, mode, margin)) 
-        }
+    pub fn new(style: Style, font: u16, text: Vec<u8>, mode: u8) -> UiElement {
+        UiElement::extend(
+            style,
+            Vec::with_capacity(0),
+            UiType::Text(Self::text(font, text, mode)) 
+        )
     }
 
-    pub fn text(color: RGBA, size: UIUnit, font: u16, text: Vec<u8>, mode: u8, margin: (UIUnit, UIUnit, UIUnit, UIUnit)) -> Self {
-        Self { color, size, margin, font, text, comp_text: Vec::with_capacity(0), mode }
+    pub fn text(font: u16, text: Vec<u8>, mode: u8) -> Self {
+        Self { font, text, comp_text: Vec::with_capacity(0), mode }
     }
 
     pub fn set_text(&mut self, element: *mut UiElement, text: &[u8]) {
@@ -39,82 +31,104 @@ impl Text {
     }
 
     #[inline]
-    pub fn build_text(&mut self, size: Vec2, pos: Vec2, font: &Font) {
-
-        if self.text.len() == 0 {
+    pub fn build_text(&mut self, style: &Style, size: Vec2, pos: Vec2, context: &mut BuildContext) {
+        if self.text.is_empty() {
             println!("no text");
             return;
         }
 
-        const BSIZE: f32 = 8.0;
-        let font_size = self.size.pixely(size);
-        let scale_factor = font_size / BSIZE;
-        let mut a_width: Vec<f32> = vec![0.0];
-        let mut w_i = 0;
+        if let Style::Inline(style) = style {
+            const BSIZE: f32 = 8.0;
+            let font_size = style.height.height(size);
+            let scale_factor = font_size / BSIZE;
+            let mut current_width: f32 = 0.0;
+            let max_width = match style.width {
+                UiSize::Auto => context.parent_size.x - context.start_pos.x,
+                _ => size.x
+            };
 
-        let mut o_x = Vec::with_capacity(self.text.len());
-        let mut o_y = Vec::with_capacity(self.text.len());
-        let mut char_width = Vec::with_capacity(self.text.len());
+            let mut lines: Vec<Vec<UiInstance>> = vec![];
+            let mut current_line = Vec::new();
 
-        for i in &self.text {
+            let x_progress = pos.x + style.margin[0].pixelx(size);
+            let mut y_progress = pos.y + style.margin[1].pixely(size);
 
-            if *i == b'\n' {
-                a_width.push(0.0);
-                w_i += 1;
-            } else {
-                let data = font.get_data(*i);
-                o_x.push(data.0);
-                o_y.push(data.1);
-                char_width.push(data.2);
-                a_width[w_i] += data.2 as f32;
+            for &c in &self.text {
+                if c == b'\n' {
+                    lines.push(current_line);
+                    current_line = Vec::new();
+                    current_width = 0.0;
+                    y_progress += font_size;
+                } else {
+                    let (uv_x, uv_y, char_w, _) = (unsafe { &*context.font }).get_data(c);
+                    let char_width = char_w as f32 * scale_factor;
+
+                    if current_width + char_width > max_width {
+                        lines.push(current_line);
+                        current_line = Vec::new();
+                        current_width = 0.0;
+                        y_progress += font_size;
+                    }
+
+                    let uv_x_w = f32::from_bits(((char_w as u32) << 16) | (uv_x as u32));
+                    let uv_y_h = f32::from_bits(((BSIZE as u32) << 16) | (uv_y as u32));
+
+                    current_line.push(UiInstance {
+                        color: style.color.as_color(),
+                        border_color: style.color.as_color(),
+                        border: uv_x_w,
+                        x: x_progress + current_width,
+                        y: y_progress,
+                        width: char_width,
+                        height: BSIZE * scale_factor,
+                        corner: uv_y_h,
+                        mode: 1,
+                    });
+
+                    current_width += char_width;
+                }
             }
-        }
 
-            a_width[0] *= scale_factor;
-
-        let margin_left = self.margin.0.pixelx(size);
-        //let margin_right = text.margin.1.pixelx(parent_width, parent_height);
-        let margin_top = self.margin.2.pixely(size);
-        let _margin_bottom = self.margin.3.pixely(size);
-
-        let x_start;
-        let y_start;
-
-        match self.mode & 0b11 {
-            0 => {
-                x_start = pos.x + margin_left;
-            },
-            1 => {
-                x_start = (size.x - a_width[0]) * 0.5 + pos.x;
+            if !current_line.is_empty() {
+                lines.push(current_line);
             }
-            _ => todo!()
-        }
 
-        match self.mode & 0b1100 {
-            0 => {
-                y_start = pos.y + margin_top + scale_factor * 0.5;
+            let total_height = font_size * lines.len() as f32;
+            println!("lines: {}", lines.len());
+
+            let y_offset = match self.mode & 0b10 {
+                0 => 0.0,
+                2 => size.y * 0.5,
+                _ => 0.0,
+            };
+
+            let mut final_comp_text = Vec::new();
+            for line in &lines {
+                let line_width: f32 = line.iter().map(|i| i.width).sum();
+                let x_offset = match self.mode & 0b1 {
+                    0 => 0.0,
+                    1 => (max_width - line_width) * 0.5,
+                    _ => 0.0,
+                };
+
+                for mut instance in line.clone() {
+                    instance.x += x_offset;
+                    instance.y += y_offset;
+                    final_comp_text.push(instance);
+                }
             }
-            _ => todo!()
+
+            self.comp_text = final_comp_text;
+            context.start_pos.x = match lines.len() {
+                1 => current_width,
+                _ => max_width,
+            };
+        } else {
+            panic!("Style is not inline");
         }
-
-        let mut comp_text = Vec::with_capacity(self.text.len());
-
-        let mut x_progress = x_start;
-        for i in 0..o_x.len() {
-            let relativ_width = char_width[i] as f32 * scale_factor;
-
-            let bits = ((char_width[i] as u32) << 16) | (o_x[i] as u32);
-            let uv_x_w = f32::from_bits(bits);
-
-            let bits = ((BSIZE as u32) << 16) | (o_y[i] as u32);
-            let uv_y_h = f32::from_bits(bits);
-
-            comp_text.push(UiInstance { color: self.color.as_color(), border_color: self.color.as_color(), border: uv_x_w, x: x_progress, y: y_start, width: relativ_width, height: BSIZE * scale_factor, corner: uv_y_h, mode: 1});
-            x_progress += relativ_width;
-        }
-
-        self.comp_text = comp_text;
     }
+
+
 
     pub fn build(&self, element: &mut UiElement, context: &mut BuildContext) {
 
@@ -122,43 +136,8 @@ impl Text {
         let mut pos;
 
         match &element.style {
-            Style::Absolute(absolute) => {
-                size = Vec2::new(
-                    absolute.width.width(context.parent_size),
-                    absolute.height.height(context.parent_size)
-                );
-
-                pos = Vec2::new(
-                    match absolute.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(context.parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(context.parent_size) - size.x
-                        },
-                        Align::Center() => {
-                            (context.parent_size.x - size.x) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                    match absolute.y {
-                        Align::Top(unit) => {
-                            unit.pixely(context.parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                        },
-                        Align::Center() => {
-                            (context.parent_size.y - size.y) * 0.5 
-                        },
-                        _ => panic!()
-                    },
-                );
-
-                element.computed.color = absolute.color.as_color();
-                element.computed.border_color = absolute.border_color.as_color();
-                element.computed.border = absolute.border[0];
-                element.computed.corner = absolute.corner[0].pixelx(size);
+            Style::Absolute(_) => {
+                panic!();
             },
             Style::Inline(inline) => {
                 size = Vec2::new(
@@ -168,7 +147,7 @@ impl Text {
 
                 pos = Vec2::new(0.0, 0.0);
 
-                if context.parent_size.x - context.start_pos.x - context.parent_pos.x >= size.x {
+                if context.parent_size.x - context.start_pos.x >= size.x {
                     pos.x += context.start_pos.x;
                     context.start_pos.x += size.x;
                 } else {
@@ -191,16 +170,9 @@ impl Text {
             element.computed.order = context.order;
         }
 
-        let mut context = BuildContext::new_from(context, size, pos, &element.computed as _);
-
-        for element in &mut element.childs {
-            element.build(&mut context);
-            context.order += 1;
-        }
-
         let text = unsafe { (self as *const Text).cast_mut().as_mut().unwrap_unchecked() };
-
-        text.build_text(size, pos, unsafe { &*context.font });
+        text.build_text(&element.style, size, pos, context);
+        element.computed.size.x = element.computed.size.x.max(context.start_pos.x);
         element.dirty = false;
     }
 }
