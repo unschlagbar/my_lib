@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32 
@@ -12,8 +12,12 @@ impl Vec2 {
         Self { x, y }
     }
 
-    pub const fn default() -> Self {
+    pub const fn zero() -> Self {
         Self { x: 0.0, y: 0.0 }
+    }
+
+    pub const fn one() -> Self {
+        Self { x: 1.0, y: 1.0 }
     }
 
     #[inline(always)]

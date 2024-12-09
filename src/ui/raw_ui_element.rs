@@ -42,7 +42,7 @@ impl RawUiElement {
     }
 
     pub const fn default() -> Self {
-        Self { pos: Vec2::default(), size: Vec2::default(), color: Color::ZERO, border_color: Color::ZERO, border: 0.0, corner: 0.0, order: 0, mode: 0 }
+        Self { pos: Vec2::zero(), size: Vec2::zero(), color: Color::ZERO, border_color: Color::ZERO, border: 0.0, corner: 0.0, order: 0, mode: 0 }
     }
 
     

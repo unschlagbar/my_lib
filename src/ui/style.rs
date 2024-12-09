@@ -4,7 +4,7 @@ use crate::graphics::formats::RGBA;
 use super::{Align, UIUnit, UiSize};
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Style {
     Absolute(Absolute),
     Inline(Inline),
@@ -44,7 +44,7 @@ impl Default for Style {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Absolute {
     pub x: Align,
     pub y: Align,
@@ -55,7 +55,7 @@ pub struct Absolute {
     pub border: [f32; 4],
     pub corner: [UIUnit; 4],
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Inline {
     pub margin: [UIUnit; 4],
     pub padding: [UIUnit; 4],

@@ -40,7 +40,7 @@ impl UiState {
     }
 
     pub fn get_instaces(&mut self, ui_size: Vec2) -> Vec<UiInstance> {
-        println!("ff");
+        println!("Refresh");
         let mut instances = Vec::new();
 
         if !self.visible || self.elements.len() == 0 {

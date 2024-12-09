@@ -60,7 +60,7 @@ impl UiElement {
             }
             _ => {
 
-                let size;
+                let mut size;
                 let mut pos;
 
                 match &self.style {
@@ -119,32 +119,20 @@ impl UiElement {
                             inline.margin[1].pixely(context.parent_size),
                         );
 
-                        println!("{}, {}, {}", context.parent_size.y, context.start_pos.y, context.parent_pos.y);
-
-                        if context.parent_size.x - context.start_pos.x >= size.x {
-                            pos.x += context.start_pos.x;
-                            context.start_pos.x += size.x + inline.margin[0].pixelx(context.parent_size) + inline.margin[2].pixelx(context.parent_size);
-                            context.start_pos.y = context.start_pos.y.max(size.y + inline.margin[1].pixely(context.parent_size) + inline.margin[3].pixely(context.parent_size));
-                        } else {
-                            pos.y += context.start_pos.y;
-                            context.start_pos.y += size.y + inline.margin[1].pixely(context.parent_size) + inline.margin[3].pixely(context.parent_size);
-                            context.start_pos.x = context.start_pos.x.max(size.x + inline.margin[0].pixelx(context.parent_size) + inline.margin[2].pixelx(context.parent_size));
-                        }
+                        context.fits_in_line(inline, &mut pos, &mut size);
 
                         self.computed.color = inline.color.as_color();
                         self.computed.border_color = inline.border_color.as_color();
                         self.computed.border = inline.border[0];
-                        self.computed.corner = inline.corner[0].pixelx(size);
+                        self.computed.corner = inline.corner[0].pixelx(self.computed.size);
                     }
                 }
 
                 pos += context.parent_pos;
-
-                {
-                    self.computed.pos = pos;
-                    self.computed.size = size;
-                    self.computed.order = context.order;
-                }
+                
+                self.computed.order = context.order;
+                self.computed.size = size;
+                self.computed.pos = pos;
 
                 let mut context = BuildContext::new_from(context, size, pos, &self.computed as _);
 
@@ -160,7 +148,7 @@ impl UiElement {
                         self.computed.size.x = context.start_pos.x
                     }
                     if UiSize::Auto == inline.height && context.start_pos.y != 0.0 {
-                        self.computed.size.y = context.start_pos.y
+                        self.computed.size.y = context.start_pos.y + context.line_offset
                     }
                 }
             }
@@ -199,9 +187,9 @@ impl UiElement {
 
     #[inline(always)]
     pub fn get_offset(&self) -> Vec2 {
+        let offset;
         if !self.parent.is_null() {
             let parent = unsafe { &*self.parent };
-            let offset;
             
             if self.computed.order > 0 {
                 let child = &parent.childs[self.computed.order as usize - 1];
@@ -209,11 +197,10 @@ impl UiElement {
             } else {
                 offset = Vec2::default();
             }
-            
-            offset
         } else {
-            return Vec2::default();
+            offset = Vec2::default();
         }
+        offset
     }
 
     #[inline(always)]
@@ -222,6 +209,21 @@ impl UiElement {
             child.move_computed(amount);
         }
         self.computed.pos += amount;
+
+        if let UiType::Text(text) = &mut self.inherit {
+            for raw in &mut text.comp_text {
+                raw.x += amount.x;
+                raw.y += amount.y;
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn move_computed_absolute(&mut self, pos: Vec2) {
+        for child in &mut self.childs {
+            child.move_computed_absolute(pos);
+        }
+        self.computed.pos = pos;
     }
 
     #[inline(always)]
@@ -294,6 +296,9 @@ impl UiElement {
                     parent_size.x - inline.margin[0].pixelx(parent_size) - inline.margin[2].pixelx(parent_size),
                     parent_size.y -  inline.margin[1].pixely(parent_size) - inline.margin[3].pixely(parent_size)
                 );
+                
+                let old_pos = self.computed.pos;
+                let old_size = self.computed.size;
 
                 self.computed.size = Vec2::new(
                     inline.width.width(space),
@@ -305,12 +310,39 @@ impl UiElement {
                     inline.margin[1].pixely(parent_size),
                 );
 
-                let start_pos = self.get_offset();
+                let original_start_pos = self.get_offset();
 
-                if parent_size.x - start_pos.x - parent_pos.x >= self.computed.size.x {
-                    self.computed.pos.x += start_pos.x;
-                } else {
-                    self.computed.pos.y += start_pos.y;
+                println!("{:?}", original_start_pos);
+
+                self.computed.pos = old_pos;
+
+                let mut context = BuildContext::default(font, parent_size);
+                context.parent_pos = parent_pos;
+                context.line_offset = self.computed.size.y;
+                context.start_pos = original_start_pos;
+
+                //println!("{}", context.fits_in_line(inline, &mut self.computed.pos, &mut self.computed.size));
+
+                if self.computed.pos != old_pos && self.computed.size != old_size && false {
+
+                    let neightbours = &mut (unsafe { &mut*self.parent }).childs;
+
+                    for i in (self.computed.order as usize) + 1..neightbours.len() {
+                        let neightbour = unsafe { neightbours.get_unchecked_mut(i) };
+
+                        if context.parent_size.x - context.start_pos.x >= neightbour.computed.size.x {
+                            neightbour.move_computed_absolute(original_start_pos);
+
+                            context.line_offset = context.line_offset.max(neightbour.computed.size.y + inline.margin[1].pixely(context.parent_size) + inline.margin[3].pixely(context.parent_size));
+                            context.start_pos.x += neightbour.computed.size.x + inline.margin[0].pixelx(context.parent_size) + inline.margin[2].pixelx(context.parent_size);
+
+                        } else {
+                            neightbour.move_computed(Vec2::new(0.0, context.line_offset));
+                            neightbour.computed.pos.y += context.start_pos.y;
+                            context.line_offset = neightbour.computed.size.y + inline.margin[1].pixely(context.parent_size) + inline.margin[3].pixely(context.parent_size);
+                            context.start_pos.x = neightbour.computed.size.x + inline.margin[0].pixelx(context.parent_size) + inline.margin[2].pixelx(context.parent_size);
+                        }
+                    }
                 }
 
                 self.computed.color = inline.color.as_color();
@@ -322,6 +354,7 @@ impl UiElement {
 
         if let UiType::Text(text) = &mut self.inherit {
             text.build_text(&self.style, self.computed.size, self.computed.pos, &mut BuildContext::default(font, parent_size));
+            println!("efe");
         }
 
         self.dirty = false

@@ -149,6 +149,8 @@ impl VkBase {
 
         let devices = unsafe { instance.enumerate_physical_devices() }.expect("Bro how do you see this without a GPU?");
 
+        return (devices[0], 0);
+
         let rt_extensions = [
             khr::swapchain::NAME,
             khr::acceleration_structure::NAME,
