@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -56,6 +56,73 @@ impl AddAssign for Vec2 {
     }
 }
 
+impl Mul for Vec2 {
+    type Output = Vec2;
+
+    fn mul(self, other: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+}
+
+impl Mul<f32> for Vec2 {
+    type Output = Vec2;
+
+    fn mul(self, other: f32) -> Vec2 {
+        Vec2 {
+            x: self.x * other,
+            y: self.y * other,
+        }
+    }
+}
+
+
+impl MulAssign for Vec2 {
+    fn mul_assign(&mut self, other: Vec2) {
+        self.x *= other.x;
+        self.y *= other.y;
+    }
+}
+
+impl Div for Vec2 {
+    type Output = Vec2;
+
+    fn div(self, other: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.x / other.x,
+            y: self.y / other.y,
+        }
+    }
+}
+
+impl Div<f32> for Vec2 {
+    type Output = Vec2;
+
+    fn div(self, other: f32) -> Vec2 {
+        Vec2 {
+            x: self.x / other,
+            y: self.y / other,
+        }
+    }
+}
+
+impl DivAssign for Vec2 {
+    fn div_assign(&mut self, other: Vec2) {
+        self.x /= other.x;
+        self.y /= other.y;
+    }
+}
+
+impl DivAssign<f32> for Vec2 {
+
+    fn div_assign(&mut self, other: f32) {
+        self.x /= other;
+        self.y /= other;
+    }
+}
+
 impl Sub for Vec2 {
     type Output = Vec2;
 
@@ -103,5 +170,13 @@ impl PartialOrd for Vec2 {
         } else {
             None
         }
+    }
+}
+
+impl Neg for Vec2 {
+    type Output = Vec2;
+
+    fn neg(self) -> Vec2 {
+        Vec2::new(-self.x, -self.y)
     }
 }

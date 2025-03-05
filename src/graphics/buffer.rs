@@ -8,6 +8,7 @@ use super::{SinlgeTimeCommands, VkBase};
 pub struct Buffer {
     pub inner: vk::Buffer,
     pub mem: vk::DeviceMemory,
+    pub size: u64,
 }
 
 impl Buffer {
@@ -37,11 +38,11 @@ impl Buffer {
         let mem = unsafe { base.device.allocate_memory(&alloc_info, None).unwrap() };
     
         unsafe { base.device.bind_buffer_memory(buffer, mem, 0).unwrap_unchecked() };
-        Self { inner: buffer, mem }
+        Self { inner: buffer, mem, size }
     }
 
     pub fn null() -> Self {
-        Self { inner: vk::Buffer::null(), mem: vk::DeviceMemory::null() }
+        Self { inner: vk::Buffer::null(), mem: vk::DeviceMemory::null(), size: 0 }
     }
 
     pub fn device_local(base: &VkBase, command_pool: &vk::CommandPool, stride: u64, len: u64, data: *const u8, usage: vk::BufferUsageFlags) -> Self {
@@ -63,6 +64,29 @@ impl Buffer {
         staging_buffer.destroy(&base.device);
 
         device_local_buffer
+    }
+
+    pub fn update(&mut self, base: &VkBase, command_pool: &vk::CommandPool, stride: u64, len: u64, data: *const u8, usage: vk::BufferUsageFlags) {
+        let buffer_size = stride * len;
+        let staging_buffer = Self::create(base, buffer_size, usage | vk::BufferUsageFlags::TRANSFER_SRC, vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT);
+
+        let mapped_memory = staging_buffer.map_memory(&base.device, buffer_size);
+        unsafe {
+            std::ptr::copy_nonoverlapping(data, mapped_memory as _, buffer_size as usize);
+            staging_buffer.unmap_memory(&base.device);
+        };
+
+        if self.size < buffer_size {
+            unsafe { base.device.queue_wait_idle(base.queue).unwrap_unchecked() };
+            self.destroy(&base.device);
+            *self = Self::create(base, buffer_size, usage | vk::BufferUsageFlags::TRANSFER_DST, vk::MemoryPropertyFlags::DEVICE_LOCAL);
+        }
+
+        let cmd_buf = SinlgeTimeCommands::begin(&base, &command_pool);
+        staging_buffer.copy(&self, base, buffer_size, cmd_buf);
+        SinlgeTimeCommands::end(base, command_pool, cmd_buf);
+
+        staging_buffer.destroy(&base.device);
     }
 
     #[inline]

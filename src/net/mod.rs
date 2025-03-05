@@ -1,8 +1,9 @@
 mod web_socket;
 mod https;
+pub use web_socket::MessageDataType;
+pub use web_socket::WebSocketInterface;
 pub use web_socket::WebSocket;
 pub use https::HTTPS;
-pub use web_socket::MessageDataType;
 
 mod tests {
 

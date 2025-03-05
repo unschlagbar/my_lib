@@ -47,6 +47,7 @@ impl RGBA {
     pub const PURPLE: RGBA = RGBA { r: 255, g: 0, b: 255, a: 255 };
     pub const PINK: RGBA = RGBA { r: 255, g: 150, b: 150, a: 255 };
 
+    pub const DARKGREY: RGBA = RGBA { r: 40, g: 40, b: 40, a: 255 };
     pub const LIGHTGREY: RGBA = RGBA { r: 175, g: 175, b: 175, a: 255 };
     pub const TRANSPARENT: RGBA = RGBA { r: 0, g: 0, b: 0, a: 0 };
 

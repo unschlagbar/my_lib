@@ -5,6 +5,7 @@ use super::VkBase;
 pub struct SinlgeTimeCommands;
 
 impl SinlgeTimeCommands {
+    #[inline]
     pub fn begin(base: &VkBase, command_pool: &vk::CommandPool) -> vk::CommandBuffer {
         let allocate_info = vk::CommandBufferAllocateInfo {
             command_pool: *command_pool,
@@ -24,6 +25,18 @@ impl SinlgeTimeCommands {
         command_buffer
     }
 
+    #[inline]
+    pub fn rebegin(base: &VkBase, cmd_buf: &vk::CommandBuffer) {
+
+        let begin_info = vk::CommandBufferBeginInfo {
+            flags: vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT,
+            ..Default::default()
+        };
+
+        unsafe { base.device.begin_command_buffer(*cmd_buf, &begin_info).unwrap_unchecked() };
+    }
+
+    #[inline]
     pub fn end(base: &VkBase, command_pool: &vk::CommandPool, cmd_buf: vk::CommandBuffer) {
         unsafe { base.device.end_command_buffer(cmd_buf).unwrap_unchecked() }
 
@@ -37,6 +50,30 @@ impl SinlgeTimeCommands {
             base.device.queue_submit(base.queue, &[submits], vk::Fence::null()).unwrap_unchecked();
             base.device.queue_wait_idle(base.queue).unwrap_unchecked();
             base.device.free_command_buffers(*command_pool, &[cmd_buf]);
+        }
+    }
+
+    #[inline]
+    pub fn free(base: &VkBase, command_pool: &vk::CommandPool, cmd_buf: vk::CommandBuffer) {
+        unsafe { 
+            base.device.free_command_buffers(*command_pool, &[cmd_buf]);
+        }
+    }
+
+    #[inline]
+    pub fn reset(base: &VkBase, cmd_buf: &vk::CommandBuffer) {
+        unsafe { base.device.end_command_buffer(*cmd_buf).unwrap_unchecked() }
+
+        let submits = vk::SubmitInfo {
+            command_buffer_count: 1,
+            p_command_buffers: cmd_buf,
+            ..Default::default()
+        };
+
+        unsafe { 
+            base.device.queue_submit(base.queue, &[submits], vk::Fence::null()).unwrap_unchecked();
+            base.device.queue_wait_idle(base.queue).unwrap_unchecked();
+            base.device.reset_command_buffer(*cmd_buf, vk::CommandBufferResetFlags::empty()).unwrap_unchecked();
         }
     }
 

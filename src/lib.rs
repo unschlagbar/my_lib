@@ -6,6 +6,8 @@ pub mod ui;
 pub mod primitives;
 pub mod collections;
 pub mod security;
+pub mod physics2d;
+pub mod physics;
 
 #[cfg(test)]
 mod tests {

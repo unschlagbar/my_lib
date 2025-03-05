@@ -26,7 +26,6 @@ impl BuildContext {
     #[inline]
     pub fn fits_in_line(&mut self , inline: &Inline, pos: &mut Vec2, size: &mut Vec2) -> bool {
         if self.parent_size.x - self.start_pos.x >= size.x {
-            println!("sdfsd{:?}", self.start_pos);
             *pos += self.start_pos;
 
             self.line_offset = self.line_offset.max(size.y + inline.margin[1].pixely(self.parent_size) + inline.margin[3].pixely(self.parent_size));
@@ -37,6 +36,7 @@ impl BuildContext {
         } else {
             self.start_pos.y += self.line_offset;
             pos.y += self.start_pos.y;
+
             self.line_offset = size.y + inline.margin[1].pixely(self.parent_size) + inline.margin[3].pixely(self.parent_size);
             self.start_pos.x = size.x + inline.margin[0].pixelx(self.parent_size) + inline.margin[2].pixelx(self.parent_size);
 

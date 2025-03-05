@@ -69,8 +69,10 @@ impl Image {
             image: self.inner,
             subresource_range: vk::ImageSubresourceRange {
                 aspect_mask: {
-                    if self.format == vk::Format::D32_SFLOAT || self.format == vk::Format::D16_UNORM || self.format == vk::Format::D24_UNORM_S8_UINT {
+                    if self.format == vk::Format::D32_SFLOAT || self.format == vk::Format::D16_UNORM {
                         vk::ImageAspectFlags::DEPTH
+                    } else if self.format == vk::Format::D24_UNORM_S8_UINT {
+                        vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL
                     } else {
                         vk::ImageAspectFlags::COLOR
                     }

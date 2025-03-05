@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use super::{callback::ErasedFnPointer, Style, UiElement, UiState, UiType};
+use super::{callback::ErasedFnPointer, Style, UiElement, UiType};
 
 #[derive(Clone)]
 pub struct CheckBox {
@@ -26,11 +26,11 @@ impl CheckBox {
         Self { hover_style, press_style, selected: false, pressed: false, enabled: false, on_enable: ErasedFnPointer::null(), on_disable: ErasedFnPointer::null() }
     }
 
-    pub fn on_enable<S>(&mut self, struct_pointer: &mut S, fp: fn(&mut S, &mut UiState)) {
+    pub fn on_enable<S>(&mut self, struct_pointer: &mut S, fp: fn(&mut S, &mut UiElement)) {
         self.on_enable = ErasedFnPointer::from_associated(struct_pointer, fp);
     }
 
-    pub fn on_disable<S>(&mut self, struct_pointer: &mut S, fp: fn(&mut S, &mut UiState)) {
+    pub fn on_disable<S>(&mut self, struct_pointer: &mut S, fp: fn(&mut S, &mut UiElement)) {
         self.on_disable = ErasedFnPointer::from_associated(struct_pointer, fp);
     }
 }

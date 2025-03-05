@@ -1,7 +1,7 @@
 
 use crate::{graphics::formats::Color, primitives::Vec2};
 
-use super::{Align, BuildContext, Style, UiElement};
+use super::{style::Position, BuildContext, Style, UiElement};
 
 
 
@@ -23,48 +23,20 @@ impl UiImage {
         let size;
         let mut pos;
 
-        match &element.style {
-            Style::Absolute(absolute) => {
+        match &element.style.position {
+            Position::Absolute(absolute) => {
                 size = Vec2::new(
-                    absolute.width.width(context.parent_size),
-                    absolute.height.height(context.parent_size)
+                    element.style.width.width(context.parent_size),
+                    element.style.height.height(context.parent_size)
                 );
 
-                pos = Vec2::new(
-                    match absolute.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(context.parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(context.parent_size) - size.x
-                        },
-                        Align::Center() => {
-                            (context.parent_size.x - size.x) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                    match absolute.y {
-                        Align::Top(unit) => {
-                            unit.pixely(context.parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                        },
-                        Align::Center() => {
-                            (context.parent_size.y - size.y) * 0.5 
-                        },
-                        _ => panic!()
-                    },
-                );
+                pos = absolute.align.get_pos(context.parent_size, size, Vec2::new(absolute.x.pixelx(context.parent_size), absolute.y.pixely(context.parent_size)));
 
-                element.computed.border_color = absolute.border_color.as_color();
-                element.computed.border = absolute.border[0];
-                element.computed.corner = absolute.corner[0].pixelx(size);
             },
-            Style::Inline(inline) => {
+            Position::Inline(_) => {
                 size = Vec2::new(
-                    inline.width.width(context.parent_size),
-                    inline.height.height(context.parent_size)
+                    element.style.width.width(context.parent_size),
+                    element.style.height.height(context.parent_size)
                 );
 
                 pos = Vec2::new(0.0, 0.0);
@@ -77,11 +49,12 @@ impl UiImage {
                     context.start_pos.y += size.y;
                 }
 
-                element.computed.border_color = inline.border_color.as_color();
-                element.computed.border = inline.border[0];
-                element.computed.corner = inline.corner[0].pixelx(size);
             }
         }
+
+        element.computed.border_color = element.style.border_color.as_color();
+        element.computed.border = element.style.border[0];
+        element.computed.corner = element.style.corner[0].pixelx(size);
 
         pos += context.parent_pos;
 

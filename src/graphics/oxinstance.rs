@@ -25,7 +25,7 @@ pub struct VkBase {
 }
 
 impl VkBase {
-    pub fn create(mut instance_extension: Vec<*const c_char>, window: &winit::window::Window) -> Self {
+    pub fn create(mut instance_extension: Vec<*const c_char>, window: &winit::window::Window, required_capabilities: u32) -> Self {
 
         #[cfg(feature = "linked")]
         let entry = ash::Entry::linked();
@@ -58,7 +58,7 @@ impl VkBase {
                 unsafe {debug_utils.create_debug_utils_messenger(&debugcreateinfo, None).unwrap_unchecked()}
             }
         };
-        let (physical_device, capabilities) = Self::select_physical_device(&instance);
+        let (physical_device, capabilities) = Self::select_physical_device(&instance, required_capabilities);
 
         let surface_loader = khr::surface::Instance::new(&entry, &instance);
         let surface = unsafe { ash_window::create_surface(&entry, &instance, window.display_handle().unwrap_unchecked().as_raw(), window.window_handle().unwrap_unchecked().as_raw(), None).unwrap_unchecked() };
@@ -94,7 +94,7 @@ impl VkBase {
             application_version: vk::make_api_version(0, 1, 0, 0),
             p_engine_name: std::ptr::null(),
             engine_version: vk::make_api_version(0, 1, 0, 0),
-            api_version: vk::make_api_version(1, 3, 296, 0),
+            api_version: vk::make_api_version(0, 1, 3, 289),
             ..Default::default()
         };
 
@@ -145,18 +145,25 @@ impl VkBase {
         unsafe { entry.create_instance(&create_info, None).unwrap() }
     }
 
-    fn select_physical_device(instance: &ash::Instance) -> (vk::PhysicalDevice, u32) {
+    fn select_physical_device(instance: &ash::Instance, capabilities: u32) -> (vk::PhysicalDevice, u32) {
 
         let devices = unsafe { instance.enumerate_physical_devices() }.expect("Bro how do you see this without a GPU?");
 
-        return (devices[0], 0);
+        let extentions;
 
-        let rt_extensions = [
-            khr::swapchain::NAME,
-            khr::acceleration_structure::NAME,
-            khr::ray_tracing_pipeline::NAME,
-            khr::deferred_host_operations::NAME,
-        ];
+        if capabilities != 0 {
+            extentions = vec![
+                khr::swapchain::NAME,
+                khr::acceleration_structure::NAME,
+                khr::ray_tracing_pipeline::NAME,
+                khr::deferred_host_operations::NAME,
+            ];
+        } else {
+            extentions = vec![
+                khr::swapchain::NAME,
+            ];
+        }
+
     
         for &device in &devices {
 
@@ -166,12 +173,12 @@ impl VkBase {
     
             let supported_extensions: Vec<&CStr> = extension_properties.iter().map(|ext| unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) }).collect();
     
-            let all_supported = rt_extensions.iter().all(|required| {
+            let all_supported = extentions.iter().all(|required| {
                 supported_extensions.iter().any(|&supported| supported == *required)
             });
     
             if all_supported {
-                return (device, 1);
+                return (device, capabilities);
             }
         }
     
@@ -264,6 +271,7 @@ impl VkBase {
     }
 }
 
+#[cfg(debug_assertions)]
 unsafe extern "system" fn vulkan_debug_utils_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,

@@ -1,3 +1,5 @@
+use std::{fmt, io::{self, Read, Write}};
+
 
 
 pub struct ByteReader<T> {
@@ -61,9 +63,24 @@ where T: AsRef<[u8]> {
         u16::from_be_bytes([self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1]])
     }
 
+    pub fn read_le_u24(&mut self) -> u32 {
+        self.pos += 3;
+        u32::from_le_bytes([self.inner.as_ref()[self.pos - 3], self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1], 0])
+    }
+
     pub fn read_be_u32(&mut self) -> u32 {
         self.pos += 4;
         u32::from_be_bytes([self.inner.as_ref()[self.pos - 4], self.inner.as_ref()[self.pos - 3], self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1]])
+    }
+
+    pub fn read_be_u64(&mut self) -> u64 {
+        self.pos += 8;
+        u64::from_be_bytes([self.inner.as_ref()[self.pos - 8], self.inner.as_ref()[self.pos - 7], self.inner.as_ref()[self.pos - 6], self.inner.as_ref()[self.pos - 5], self.inner.as_ref()[self.pos - 4], self.inner.as_ref()[self.pos - 3], self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1]])
+    }
+
+    pub fn read_be_i64(&mut self) -> i64 {
+        self.pos += 8;
+        i64::from_be_bytes([self.inner.as_ref()[self.pos - 8], self.inner.as_ref()[self.pos - 7], self.inner.as_ref()[self.pos - 6], self.inner.as_ref()[self.pos - 5], self.inner.as_ref()[self.pos - 4], self.inner.as_ref()[self.pos - 3], self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1]])
     }
 
     pub fn read_le_u16(&mut self) -> u16 {
@@ -74,6 +91,31 @@ where T: AsRef<[u8]> {
     pub fn read_le_u32(&mut self) -> u32 {
         self.pos += 4;
         u32::from_le_bytes([self.inner.as_ref()[self.pos - 4], self.inner.as_ref()[self.pos - 3], self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1]])
+    }
+
+    pub fn is_read_finished(&self) -> bool {
+        self.pos == self.inner.as_ref().len()
+    }
+}
+
+impl<T> Read for ByteReader<T>
+where
+    T: AsRef<[u8]>,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let len = buf.len();
+        let remaining = &self.inner.as_ref()[self.pos..];
+        let to_read = remaining.len().min(len);
+        buf[..to_read].copy_from_slice(&remaining[..to_read]);
+        self.pos += to_read;
+        Ok(to_read)
+    }
+}
+
+impl<T> ByteReader<T> 
+where T: AsRef<Vec<u8>> {
+    pub fn get_remaining(&self) -> &[u8] {
+        &self.inner.as_ref()[self.pos..self.inner.as_ref().len() - 1]
     }
 }
 
@@ -116,7 +158,7 @@ impl ByteWriter {
         self.buf
     }
 
-    pub fn as_mut_ref(&mut self) -> &mut Vec<u8> {
+    pub fn as_mut(&mut self) -> &mut Vec<u8> {
         &mut self.buf
     }
 
@@ -140,7 +182,52 @@ impl ByteWriter {
         self.buf.extend(number.to_le_bytes());
     }
 
+    pub fn write_u24(&mut self, number: u32) {
+        let bytes = number.to_le_bytes();
+        self.buf.extend_from_slice(&[bytes[0], bytes[1], bytes [2]]);
+    }
+
+    pub fn write_be_u24(&mut self, number: u32) {
+        let bytes = number.to_be_bytes();
+        self.buf.extend_from_slice(&[bytes[0], bytes[1], bytes [2], 0]);
+    }
+
+    pub fn write_u64(&mut self, number: u64) {
+        self.buf.extend(number.to_le_bytes());
+    }
+
+    pub fn write_be_u16(&mut self, number: u16) {
+        self.buf.extend(number.to_be_bytes());
+    }
+
+    pub fn write_be_u32(&mut self, number: u32) {
+        self.buf.extend(number.to_be_bytes());
+    }
+
+    pub fn write_be_u64(&mut self, number: u64) {
+        self.buf.extend(number.to_be_bytes());
+    }
+
+    pub fn write_be_i64(&mut self, number: i64) {
+        self.buf.extend(number.to_be_bytes());
+    }
+
     pub fn write_string(&mut self, string: &str) {
         self.buf.extend_from_slice(string.as_bytes());
+    }
+}
+
+impl Write for ByteWriter {    
+    fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
+        self.buf.write_fmt(args)
+    }
+    
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.buf.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }

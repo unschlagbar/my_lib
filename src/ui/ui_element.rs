@@ -1,10 +1,10 @@
 use std::ptr::null_mut;
 
-use crate::{graphics::UiInstance, primitives::Vec2};
+use crate::{graphics::{formats::Color, UiInstance}, primitives::Vec2};
 
-use super::{Align, BuildContext, Font, RawUiElement, Style, UiEvent, UiSize, UiState, UiType};
+use super::{style::Position, ui_state::UiIndex, BuildContext, Font, Interaction, RawUiElement, Style, UiEvent, UiSize, UiState, UiType};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UiElement {
     pub style: Style,
     pub visible: bool,
@@ -39,11 +39,6 @@ impl UiElement {
 
     #[inline(always)]
     pub fn build(&mut self, context: &mut BuildContext) {
-        if !self.visible {
-            self.computed.order = context.order;
-            self.dirty = false;
-            return;
-        }
 
         let self_copy = unsafe { &mut *(self as *mut _) };
         let self_ptr: *mut UiElement = self;
@@ -63,46 +58,16 @@ impl UiElement {
                 let mut size;
                 let mut pos;
 
-                match &self.style {
-                    Style::Absolute(absolute) => {
+                match &self.style.position {
+                    Position::Absolute(absolute) => {
                         size = Vec2::new(
-                            absolute.width.width(context.parent_size),
-                            absolute.height.height(context.parent_size)
+                            self.style.width.width(context.parent_size),
+                            self.style.height.height(context.parent_size)
                         );
 
-                        pos = Vec2::new(
-                            match absolute.x {
-                                Align::Left(unit) => {
-                                    unit.pixelx(context.parent_size)
-                                },
-                                Align::Right(unit) => {
-                                    -unit.pixelx(context.parent_size) - size.x
-                                },
-                                Align::Center() => {
-                                    (context.parent_size.x - size.x) * 0.5
-                                },
-                                _ => panic!()
-                            },
-                            match absolute.y {
-                                Align::Top(unit) => {
-                                    unit.pixely(context.parent_size)
-                                },
-                                Align::Bottom(unit) => {
-                                    context.parent_size.y - unit.pixely(context.parent_size) - size.y
-                                },
-                                Align::Center() => {
-                                    (context.parent_size.y - size.y) * 0.5 
-                                },
-                                _ => panic!()
-                            },
-                        );
-
-                        self.computed.color = absolute.color.as_color();
-                        self.computed.border_color = absolute.border_color.as_color();
-                        self.computed.border = absolute.border[0];
-                        self.computed.corner = absolute.corner[0].pixelx(size);
+                        pos = absolute.align.get_pos(context.parent_size, size, Vec2::new(absolute.x.pixelx(context.parent_size), absolute.y.pixely(context.parent_size)));
                     },
-                    Style::Inline(inline) => {
+                    Position::Inline(inline) => {
 
                         let space = Vec2::new(
                             context.parent_size.x - inline.margin[0].pixelx(context.parent_size) - inline.margin[2].pixelx(context.parent_size),
@@ -110,8 +75,8 @@ impl UiElement {
                         );
 
                         size = Vec2::new(
-                            inline.width.width(space),
-                            inline.height.height(space)
+                            self.style.width.width(space),
+                            self.style.height.height(space)
                         );
 
                         pos = Vec2::new(
@@ -120,13 +85,15 @@ impl UiElement {
                         );
 
                         context.fits_in_line(inline, &mut pos, &mut size);
-
-                        self.computed.color = inline.color.as_color();
-                        self.computed.border_color = inline.border_color.as_color();
-                        self.computed.border = inline.border[0];
-                        self.computed.corner = inline.corner[0].pixelx(self.computed.size);
                     }
                 }
+
+                let style = self.style;
+
+                self.computed.color = style.color.as_color();
+                self.computed.border_color = style.border_color.as_color();
+                self.computed.border = style.border[0];
+                self.computed.corner = style.corner[0].pixelx(size);
 
                 pos += context.parent_pos;
                 
@@ -141,13 +108,14 @@ impl UiElement {
                     element.parent = self_ptr;
                     context.order += 1;
                 }
+
                 self.dirty = false;
 
-                if let Style::Inline(inline) = &self.style {
-                    if UiSize::Auto == inline.width && context.start_pos.x != 0.0 {
+                if let Position::Inline(_) = &self.style.position {
+                    if UiSize::Auto == style.width && context.start_pos.x != 0.0 {
                         self.computed.size.x = context.start_pos.x
                     }
-                    if UiSize::Auto == inline.height && context.start_pos.y != 0.0 {
+                    if UiSize::Auto == style.height && context.start_pos.y != 0.0 {
                         self.computed.size.y = context.start_pos.y + context.line_offset
                     }
                 }
@@ -168,9 +136,6 @@ impl UiElement {
         }
 
         if !self.visible {
-            for child in &mut self.childs {
-                child.get_instances(instances, ui_size, font);
-            }
             return;
         }
         
@@ -182,6 +147,20 @@ impl UiElement {
 
         for child in &mut self.childs {
             child.get_instances(instances, ui_size, font);
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_outline(&mut self, instances: &mut Vec<UiInstance>, ui_size: Vec2) {
+
+        if let UiType::Text(_text) = &self.inherit {
+            println!("todo");
+        } else {
+            instances.push(UiInstance { color: Color::new(0.1, 0.1, 0.8, 0.5), border_color: Color::PURPLE, border: 1.0, x: self.computed.pos.x, y: self.computed.pos.y, width: self.computed.size.x, height: self.computed.size.y, corner: 0.0, mode: 0 });
+        }
+
+        for child in &mut self.childs {
+            child.get_outline(instances, ui_size);
         }
     }
 
@@ -231,9 +210,9 @@ impl UiElement {
 
         let style: &Style = match &self.inherit {
             UiType::Button(button) => {
-                if button.pressed {
+                if button.interaction == Interaction::Pressed {
                     &button.press_style
-                } else if button.selected {
+                } else if button.interaction == Interaction::Hover {
                     &button.hover_style
                 } else {
                     &self.style
@@ -251,46 +230,18 @@ impl UiElement {
             _ => &self.style,
         };
 
-        match style {
-            Style::Absolute(absolute) => {
+        let mut context = BuildContext::default(font, parent_size);
+
+        match style.position {
+            Position::Absolute(absolute) => {
                 self.computed.size = Vec2::new(
-                    absolute.width.width(parent_size),
-                    absolute.height.height(parent_size)
+                    style.width.width(parent_size),
+                    style.height.height(parent_size)
                 );
 
-                self.computed.pos = Vec2::new(
-                    match absolute.x {
-                        Align::Left(unit) => {
-                            unit.pixelx(parent_size)
-                        },
-                        Align::Right(unit) => {
-                            -unit.pixelx(parent_size) - self.computed.size.x
-                        },
-                        Align::Center() => {
-                            (parent_size.x - self.computed.size.x) * 0.5
-                        },
-                        _ => panic!()
-                    },
-                    match absolute.y {
-                        Align::Top(unit) => {
-                            unit.pixely(parent_size)
-                        },
-                        Align::Bottom(unit) => {
-                            parent_size.y - unit.pixely(parent_size) - self.computed.size.y
-                        },
-                        Align::Center() => {
-                            (parent_size.y - self.computed.size.y) * 0.5 
-                        },
-                        _ => panic!()
-                    },
-                );
-
-                self.computed.color = absolute.color.as_color();
-                self.computed.border_color = absolute.border_color.as_color();
-                self.computed.border = absolute.border[0];
-                self.computed.corner = absolute.corner[0].pixelx(self.computed.size);
+                self.computed.pos = absolute.align.get_pos(parent_size, self.computed.size, Vec2::new(absolute.x.pixelx(parent_size), absolute.y.pixely(parent_size)));
             },
-            Style::Inline(inline) => {
+            Position::Inline(inline) => {
 
                 let space = Vec2::new(
                     parent_size.x - inline.margin[0].pixelx(parent_size) - inline.margin[2].pixelx(parent_size),
@@ -301,8 +252,8 @@ impl UiElement {
                 let old_size = self.computed.size;
 
                 self.computed.size = Vec2::new(
-                    inline.width.width(space),
-                    inline.height.height(space)
+                    style.width.width(space),
+                    style.height.height(space)
                 );
 
                 self.computed.pos = parent_pos + Vec2::new(
@@ -312,23 +263,20 @@ impl UiElement {
 
                 let original_start_pos = self.get_offset();
 
-                println!("{:?}", original_start_pos);
-
-                self.computed.pos = old_pos;
-
-                let mut context = BuildContext::default(font, parent_size);
                 context.parent_pos = parent_pos;
                 context.line_offset = self.computed.size.y;
                 context.start_pos = original_start_pos;
 
-                //println!("{}", context.fits_in_line(inline, &mut self.computed.pos, &mut self.computed.size));
+                context.fits_in_line(&inline, &mut self.computed.pos, &mut self.computed.size);
+
+                self.computed.pos = old_pos;
 
                 if self.computed.pos != old_pos && self.computed.size != old_size && false {
 
                     let neightbours = &mut (unsafe { &mut*self.parent }).childs;
 
                     for i in (self.computed.order as usize) + 1..neightbours.len() {
-                        let neightbour = unsafe { neightbours.get_unchecked_mut(i) };
+                        let neightbour: &mut UiElement = unsafe { neightbours.get_unchecked_mut(i) };
 
                         if context.parent_size.x - context.start_pos.x >= neightbour.computed.size.x {
                             neightbour.move_computed_absolute(original_start_pos);
@@ -345,16 +293,16 @@ impl UiElement {
                     }
                 }
 
-                self.computed.color = inline.color.as_color();
-                self.computed.border_color = inline.border_color.as_color();
-                self.computed.border = inline.border[0];
-                self.computed.corner = inline.corner[0].pixelx(self.computed.size);
             }
         };
 
+        self.computed.color = style.color.as_color();
+        self.computed.border_color = style.border_color.as_color();
+        self.computed.border = style.border[0];
+        self.computed.corner = style.corner[0].pixelx(self.computed.size);
+
         if let UiType::Text(text) = &mut self.inherit {
-            text.build_text(&self.style, self.computed.size, self.computed.pos, &mut BuildContext::default(font, parent_size));
-            println!("efe");
+            text.build_text(&self.style, Vec2::zero(), self.computed.pos, &mut context);
         }
 
         self.dirty = false
@@ -388,7 +336,7 @@ impl UiElement {
 
             if computed.pos.x + computed.size.x > cursor_pos.x && computed.pos.y + computed.size.y > cursor_pos.y {
 
-                for child in &mut self.childs {
+                for child in self.childs.iter_mut().rev() {
                     let result = child.update_cursor(ui, computed.size, computed.pos, cursor_pos, ui_event);
                     if result > 0 { return result };
                 }
@@ -399,19 +347,19 @@ impl UiElement {
                     UiEvent::Press => {
                         match &mut self.inherit {
                             UiType::Button(button) => {
-                                button.pressed = true;
-                                ui.pressed = self_ptr;
-                                button.before_press.call(ui);
+                                button.interaction = Interaction::Pressed;
+                                button.before_press.call(ui, unsafe { &mut *self_ptr });
                                 self.dirty = true;
+                                ui.pressed = UiIndex::new(self, usize::MAX);
                             },
                             UiType::DragBox(dragbox) => {
-                                dragbox.pressed = true;
-                                ui.pressed = self_ptr;
+                                dragbox.interaction = Interaction::Pressed;
+                                ui.pressed = UiIndex::new(self, usize::MAX);
                                 return 1;
                             },
                             UiType::CheckBox(checkbox) => {
                                 checkbox.pressed = true;
-                                ui.pressed = self_ptr;
+                                ui.pressed = UiIndex::new(self, usize::MAX);
                                 self.dirty = true;
                             },
                             _ => return 1
@@ -427,16 +375,16 @@ impl UiElement {
                     UiEvent::Move => {
                         match &mut self.inherit {
                             UiType::Button(button) => {
-                                if !button.selected {
+                                if button.interaction != Interaction::Hover {
 
-                                    button.selected = true;
+                                    button.interaction = Interaction::Hover;
                                     self.dirty = true;
 
                                     if !ui.selected.is_null() {
-                                        let raw_ref = unsafe { &mut *ui.selected };
+                                        let raw_ref = ui.selected.get_by_ptr();
                                         match unsafe { &mut raw_ref.inherit } {
                                             UiType::Button(b) => {
-                                                b.selected = false;
+                                                b.interaction = Interaction::None;
                                                 raw_ref.dirty = true;
                                             },
                                             UiType::CheckBox(b) => {
@@ -447,7 +395,7 @@ impl UiElement {
                                         }
                                     }
 
-                                    ui.selected = self;
+                                    ui.selected = UiIndex::new(self, usize::MAX);
                                 } else {
                                     return 2;
                                 }
@@ -459,10 +407,10 @@ impl UiElement {
                                     self.dirty = true;
 
                                     if !ui.selected.is_null() {
-                                        let raw_ref = unsafe { &mut *ui.selected };
+                                        let raw_ref = ui.selected.get_by_ptr();
                                         match unsafe { &mut raw_ref.inherit } {
                                             UiType::Button(b) => {
-                                                b.selected = false;
+                                                b.interaction = Interaction::None;
                                                 raw_ref.dirty = true;
                                             },
                                             UiType::CheckBox(b) => {
@@ -473,7 +421,7 @@ impl UiElement {
                                         }
                                     }
 
-                                    ui.selected = self;
+                                    ui.selected = UiIndex::new(self, usize::MAX);
                                 } else {
                                     return 2;
                                 }

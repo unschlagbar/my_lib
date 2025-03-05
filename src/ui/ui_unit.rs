@@ -31,7 +31,7 @@ impl UiSize {
                 0.0
             },
             Self::Auto => {
-                100.0
+                25.0
             },
             Self::AutoMin(min) => {
                 100f32.max(min.pixelx(parent_size))
@@ -73,7 +73,7 @@ impl UiSize {
                 0.0
             },
             Self::Auto => {
-                50.0
+                25.0
             },
             Self::AutoMin(min) => {
                 50f32.max(min.pixely(parent_size))
@@ -104,16 +104,6 @@ impl UiSize {
             },
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum Align {
-    Top(UIUnit),
-    Bottom(UIUnit),
-    Left(UIUnit),
-    Right(UIUnit),
-    Center(),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -180,7 +170,7 @@ impl UIUnit {
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
-pub enum BasicAlign {
+pub enum Align {
     Center,
     Top,
     TopRight,
@@ -190,4 +180,60 @@ pub enum BasicAlign {
     BottomLeft,
     Left,
     TopLeft,
+}
+
+impl Align {
+    #[inline]
+    pub fn get_pos(&self, space: Vec2, size: Vec2, offset: Vec2) -> Vec2 {
+        match self {
+            Align::Center => {
+                (space - size) * 0.5 + offset
+            }
+            Align::Top => {
+                Vec2::new(
+                    (space.x - size.x) * 0.5 + offset.x,
+                    offset.y
+                )
+            }
+            Align::TopRight => {
+                Vec2::new(
+                    space.x - size.x - offset.x,
+                    offset.x
+                )
+            }
+            Align::Right => {
+                Vec2::new(
+                    space.x - size.x - offset.x,
+                    (space.y - size.y) * 0.5 + offset.y
+                )
+            }
+            Align::BottomRight => {
+                Vec2::new(
+                    space.x - size.x - offset.x,
+                    space.y - size.y - offset.y
+                )
+            }
+            Align::Bottom => {
+                Vec2::new(
+                    (space.x - size.x) * 0.5 + offset.x,
+                    space.y - size.y - offset.y
+                )
+            }
+            Align::BottomLeft => {
+                Vec2::new(
+                    offset.x,
+                    space.y - size.y - offset.y
+                )
+            }
+            Align::Left => {
+                Vec2::new(
+                    offset.x,
+                    (space.y - size.y) * 0.5 + offset.y
+                )
+            }
+            Align::TopLeft => {
+                offset
+            }
+        }
+    }
 }
