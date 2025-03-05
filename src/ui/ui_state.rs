@@ -35,7 +35,7 @@ impl UiState {
             cursor_pos: Vec2::default(),
             selected: UiIndex::null(),
             pressed: UiIndex::null(), 
-            font: Font::parse_from_bytes(include_bytes!("C:/Dev/vudeljump/font/std1.fef")),
+            font: Font::parse_from_bytes(include_bytes!("../../font/std1.fef")),
             pipeline_layout: vk::PipelineLayout::null(),
             pipeline: vk::Pipeline::null(),
             instance_buffer: graphics::Buffer::null(),

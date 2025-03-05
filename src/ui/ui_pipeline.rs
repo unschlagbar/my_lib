@@ -7,8 +7,8 @@ use graphics::create_shader_modul;
 
 #[inline(always)]
 pub fn create_ui_pipeline(base: &VkBase, window_size: &winit::dpi::PhysicalSize<u32>, render_pass: vk::RenderPass, descriptor_set_layout: &vk::DescriptorSetLayout) -> (vk::PipelineLayout, vk::Pipeline) {
-    let vertex_shader_buff= include_bytes!("C:/Dev/iron_oxide/shaders/ui/vert.spv");
-    let fragment_shader_buff = include_bytes!("C:/Dev/iron_oxide/shaders/ui/frag.spv");
+    let vertex_shader_buff= include_bytes!("../../shaders/ui/vert.spv");
+    let fragment_shader_buff = include_bytes!("../../shaders/ui/frag.spv");
 
     let vertex_shader_module = create_shader_modul(base, vertex_shader_buff);
     let fragment_shader_module = create_shader_modul(base, fragment_shader_buff);
