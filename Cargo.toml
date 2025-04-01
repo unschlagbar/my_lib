@@ -14,15 +14,17 @@ overflow-checks = false
 [dependencies]
 sha1_smol = "1.0.0"
 base64 = "0.22.0"
-ash = "0.38.0"
-ash-window = "0.13.0"
-cgmath = "0.18.0"
+ash = {version = "0.38.0", optional = true}
+ash-window = {version = "0.13.0", optional = true}
+cgmath = {version = "0.18.0", optional = true}
+zip = "2.5.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.30.5", features = ["android-game-activity"] }
+winit = { version = "0.30.5", features = ["android-game-activity"], optional = true}
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 winit = { version = "0.30.5" }
 
 [features]
 linked = ["ash/linked"]
+graphics = ["ash", "ash-window", "cgmath", "winit"]

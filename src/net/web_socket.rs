@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io::{Read, Write}, net::{IpAddr, SocketAddr, TcpStream}, sync::{Arc, RwLock}, time::Duration};
+use std::{collections::VecDeque, io::{Read, Write}, net::{SocketAddr, TcpStream}, sync::{Arc, RwLock}, time::Duration};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use sha1_smol::Sha1;
 
@@ -6,6 +6,7 @@ use sha1_smol::Sha1;
 pub struct WebSocket {
     stream: TcpStream,
     send_queue: VecDeque<Vec<u8>>,
+    close: bool,
 }
 
 #[allow(dead_code)]
@@ -25,13 +26,17 @@ impl WebSocket {
         stream.flush().unwrap();
         stream.set_read_timeout(Some(Duration::from_millis(1000))).unwrap();
 
-        let ws = Self { stream, send_queue: VecDeque::with_capacity(10) };
+        let ws = Self { stream, send_queue: VecDeque::with_capacity(10), close: false };
         Some(ws)
     }
 
     pub fn new(stream: TcpStream) -> Self {
-        let ws = WebSocket { stream, send_queue: VecDeque::with_capacity(10) };
+        let ws = WebSocket { stream, send_queue: VecDeque::with_capacity(10), close: false };
         ws
+    }
+
+    pub fn close(&mut self) {
+        self.close = true;
     }
 
     pub fn send_ping(&mut self) {
@@ -121,11 +126,11 @@ impl WebSocket {
     pub fn run(ws_interface: Arc<RwLock<impl WebSocketInterface>>) {
         let mut stream;
         {
-            let mut interface = ws_interface.write().unwrap();
+            let interface = ws_interface.read().unwrap();
             stream = interface.websocket().stream.try_clone().unwrap();
         }
     
-        let ip = stream.peer_addr().unwrap().ip();
+        let ip = stream.peer_addr().unwrap();
         let mut buffer = [0; 8192];
         
         let mut message_buffer: Vec<u8> = Vec::new();
@@ -137,6 +142,8 @@ impl WebSocket {
     
         loop {
             stream.take_error().expect("No error was expected...");
+
+            //if  
     
             match stream.read(&mut buffer) {
                 Ok(0) => {
@@ -254,9 +261,11 @@ impl WebSocket {
             }
     
             let mut client = ws_interface.write().unwrap();
-            let ws = client.websocket();
+            let ws = client.websocket_mut();
             if ws.flush().is_none() {
                 client.on_closed(ip);
+                return;
+            } else if ws.close {
                 return;
             }
         }
@@ -269,7 +278,7 @@ impl WebSocket {
         expected_type: &mut Option<u8>,
         ws_interface: Arc<RwLock<impl WebSocketInterface>>,
         stream: &mut TcpStream,
-        ip: IpAddr
+        ip: SocketAddr
     ) {
         let fin = (message[0] & 0b10000000) != 0;
         let opt_code = message[0] & 0b00001111;
@@ -384,7 +393,7 @@ impl WebSocket {
 
 impl Clone for WebSocket {
     fn clone(&self) -> Self {
-        Self { stream: self.stream.try_clone().unwrap(), send_queue: VecDeque::with_capacity(10) }
+        Self { stream: self.stream.try_clone().unwrap(), send_queue: VecDeque::with_capacity(10), close: false }
     }
 }
 
@@ -402,6 +411,7 @@ pub enum MessageDataType {
 
 pub trait WebSocketInterface {
     fn on_message(&mut self, data: Vec<u8>);
-    fn on_closed(&self, ip: IpAddr);
-    fn websocket(&mut self) -> &mut WebSocket;
+    fn on_closed(&self, ip: SocketAddr);
+    fn websocket(&self) -> &WebSocket;
+    fn websocket_mut(&mut self) -> &mut WebSocket;
 }

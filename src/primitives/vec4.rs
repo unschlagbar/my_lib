@@ -1,4 +1,5 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+#[cfg(feature = "graphics")]
 use cgmath::Vector4;
 
 
@@ -249,12 +250,14 @@ impl Neg for Vec4 {
     }
 }
 
+#[cfg(feature = "graphics")]
 impl From<Vector4<f32>> for Vec4 {
     fn from(v: Vector4<f32>) -> Self {
         Self { x: v.x, y: v.y, z: v.z, w: v.w }
     }
 }
 
+#[cfg(feature = "graphics")]
 impl From<Vec4> for Vector4<f32> {
     fn from(v: Vec4) -> Self {
         Self { x: v.x, y: v.y, z: v.z, w: v.w }

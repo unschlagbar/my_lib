@@ -1,7 +1,9 @@
 pub mod net;
 pub mod io;
 pub mod rand;
+#[cfg(feature = "graphics")]
 pub mod graphics;
+#[cfg(feature = "graphics")]
 pub mod ui;
 pub mod primitives;
 pub mod collections;

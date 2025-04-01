@@ -31,6 +31,10 @@ impl<T> ByteReader<T> {
     pub fn into_inner(self) -> T {
         self.inner
     }
+
+    pub const fn as_ref(&self) -> &T {
+        &self.inner
+    }
 }
 
 impl<T> ByteReader<T>
@@ -93,8 +97,12 @@ where T: AsRef<[u8]> {
         u32::from_le_bytes([self.inner.as_ref()[self.pos - 4], self.inner.as_ref()[self.pos - 3], self.inner.as_ref()[self.pos - 2], self.inner.as_ref()[self.pos - 1]])
     }
 
+    pub fn remaining_bytes(&self) -> &[u8] {
+        &self.inner.as_ref()[self.pos..]
+    }
+
     pub fn is_read_finished(&self) -> bool {
-        self.pos == self.inner.as_ref().len()
+        self.pos >= self.inner.as_ref().len()
     }
 }
 
@@ -210,6 +218,10 @@ impl ByteWriter {
 
     pub fn write_be_i64(&mut self, number: i64) {
         self.buf.extend(number.to_be_bytes());
+    }
+
+    pub fn write_f32(&mut self, number: f32){
+        self.buf.extend(number.to_le_bytes());
     }
 
     pub fn write_string(&mut self, string: &str) {
