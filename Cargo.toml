@@ -23,8 +23,9 @@ zip = "2.5.0"
 winit = { version = "0.30.5", features = ["android-game-activity"], optional = true}
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-winit = { version = "0.30.5" }
+winit = { version = "0.30.5", optional = true }
 
 [features]
+default = []
 linked = ["ash/linked"]
 graphics = ["ash", "ash-window", "cgmath", "winit"]
