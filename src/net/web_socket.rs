@@ -251,7 +251,7 @@ impl WebSocket {
                         }
                     }
                 },
-                Err(e) if e.kind() == std::io::ErrorKind::TimedOut => (),
+                Err(e) if e.kind() == std::io::ErrorKind::TimedOut || e.kind() == std::io::ErrorKind::WouldBlock => (),
                 Err(e) => {
                     println!("Error occurred: {e}");
                     let client = ws_interface.write().unwrap();
