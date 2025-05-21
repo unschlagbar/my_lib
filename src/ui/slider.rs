@@ -1,7 +1,7 @@
 
 use crate::{graphics::formats::RGBA, primitives::Vec2};
-use std::fmt::Debug;
-use super::{callback::ErasedFnPointer, dragbox::DragEvent, style::Position, BuildContext, DragBox, Style, UiElement, UiType};
+use std::{fmt::Debug, rc::Rc};
+use super::{callback::ErasedFnPointer, dragbox::DragEvent, style::Position, BuildContext, DragBox, Style, Text, UiElement, UiType};
 
 #[derive(Clone)]
 pub struct Slider {
@@ -15,14 +15,14 @@ pub struct Slider {
 
 impl Slider {
     #[inline(always)]
-    pub fn new(style: Style, min_value: f32, max_value: f32, value: f32, infill_color: RGBA, grip_color: RGBA) -> UiElement {
+    pub fn new(style: Style, min_value: f32, max_value: f32, value: f32, infill_color: RGBA, grip_color: RGBA) -> Rc<UiElement> {
 
         let mut dragbox = DragBox {
             axis: 1,
             ..Default::default()
         };
 
-        let mut slider = UiElement::extend(
+        let slider = UiElement::extend(
             style,
             Vec::with_capacity(2),
             UiType::Slider(
@@ -34,9 +34,14 @@ impl Slider {
             Self::on_drag(event);
         });
 
-        slider.add_child(UiElement::inline(Style::infill(3.0, infill_color), Vec::with_capacity(0)));
-        slider.add_child(UiElement { style: Style::toggle(grip_color), inherit: UiType::DragBox(dragbox), ..Default::default()});
+        let mut slider = Rc::new(slider);
 
+        let infill = UiElement::inline(Style::infill(3.0, infill_color), Vec::with_capacity(0));
+        let grip = UiElement { style: Style::toggle(grip_color), inherit: UiType::DragBox(dragbox), ..Default::default()};
+
+        infill.add_to_parent(&mut slider);
+        grip.add_to_parent(&mut slider);
+        
         slider
     }
 
@@ -99,17 +104,26 @@ impl Slider {
 
         let mut context = BuildContext::new_from(context, size - Vec2::new(padding.x(), padding.y()), pos + padding.start(), &element.computed as _);
 
-        element.childs[0].build(&mut context);
-        element.childs[0].parent = element as *mut UiElement;
+        {
+            let child = &mut element.childs[0];
+            child.build(&mut context);
+        }
+
+        {
+            let child = &mut element.childs[1];
+            child.build(&mut context);
+        }
+
         context.order += 1;
         context.parent_pos.x += self.padding;
-        element.childs[1].build(&mut context);
-        element.childs[1].parent = element as *mut UiElement;
         element.dirty = false;
     }
 
     pub fn on_drag(event: &mut DragEvent) {
-        let slider = unsafe { &mut *event.element.parent };
+        let slider = match &mut event.element.parent {
+            Some(parent) => Rc::make_mut(parent),
+            None => unreachable!()
+        };
         let assumed_pos = event.element.computed.pos.x + event.move_vec.x;
         let slider_space = slider.computed.size.x - event.element.computed.size.x;
         let relative_toggle_pos = event.element.computed.pos.x - slider.computed.pos.x;
@@ -122,23 +136,22 @@ impl Slider {
             
         let t = relative_toggle_pos / slider_space;
 
+        println!("slider: {:?}", slider);
+
         let slider_component = match &mut slider.inherit {
             UiType::Slider(slider) => slider,
             _ => unreachable!()
         };
 
         slider_component.value = slider_component.min_value + t * (slider_component.max_value - slider_component.min_value);
-            
-        let parent = unsafe { &mut *slider.parent };
-        let text = &mut parent.childs[1];
-        let text_copy = text as *mut UiElement;
 
-        match &mut text.inherit {
-            UiType::Text(text) => {
-                text.set_text(text_copy, &format!("Value: {}", slider_component.value as u32))
-            },
-            _ => unreachable!()
+        let parent = match &mut slider.parent {
+            Some(parent) => Rc::make_mut(parent),
+            None => unreachable!()
         };
+        let text = Rc::make_mut(&mut parent.childs[1]);
+
+        Text::set_text(text, &format!("Value: {}", slider_component.value as u32))
     }
 }
 

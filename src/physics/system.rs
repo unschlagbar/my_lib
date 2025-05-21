@@ -1,8 +1,5 @@
 use crate::physics::{Collision, ImplRigitBody};
 
-
-
-
 #[derive(Debug)]
 #[allow(unused)]
 pub struct System {

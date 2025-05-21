@@ -1,5 +1,5 @@
 
-use super::{style::Style, UiType};
+use super::{style::Style};
 
 
 pub struct UiHoverBlock {

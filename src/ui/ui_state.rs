@@ -3,17 +3,18 @@ use std::{mem, ptr::{self, null_mut}};
 use ash::vk;
 
 use crate::{graphics::{self, SinlgeTimeCommands, UiInstance, VkBase}, primitives::Vec2};
-use super::{dragbox::DragEvent, raw_ui_element::UiEvent, style::Position, ui_pipeline, BuildContext, Font, Interaction, Style, UiElement, UiType};
+use super::{raw_ui_element::UiEvent, ui_element::{Element, TypeConst}, ui_pipeline, BuildContext, Font, UiElement};
 
-#[derive(Debug)]
+#[derive()]
 pub struct UiState {
     elements: Vec<UiElement>,
-    pub selected: UiIndex,
-    pub pressed: UiIndex,
+    pub selected: *mut UiElement,
+    pub pressed: *mut UiElement,
     pub cursor_pos: Vec2,
     pub font: Font,
     pub visible: bool,
     pub dirty: bool,
+    id_gen: u32,
     pipeline_layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     instance_buffer: graphics::Buffer,
@@ -27,14 +28,15 @@ pub struct UiState {
 
 impl UiState {
 
-    pub fn create(elements: Vec<UiElement>, _styles: Vec<Style>, visible: bool) -> UiState {
+    pub fn create(visible: bool) -> UiState {
         UiState {
             visible,
-            elements,
+            elements: Vec::new(),
             dirty: false,
+            id_gen: 1,
             cursor_pos: Vec2::default(),
-            selected: UiIndex::null(),
-            pressed: UiIndex::null(), 
+            selected: null_mut(),
+            pressed: null_mut(), 
             font: Font::parse_from_bytes(include_bytes!("../../font/std1.fef")),
             pipeline_layout: vk::PipelineLayout::null(),
             pipeline: vk::Pipeline::null(),
@@ -44,6 +46,21 @@ impl UiState {
             _debug_instance_buffer: graphics::Buffer::null(),
             _debug_buffer_size: 0,
         }
+    }
+
+    pub fn add_element<T: Element + TypeConst + 'static>(&mut self, element: T) {
+        let element = UiElement {
+            id: self.id_gen,
+            typ: T::ELEMENT_TYPE,
+            dirty: true,
+            visible: true,
+            size: Vec2::default(),
+            pos: Vec2::default(),
+            parent: null_mut(),
+            element: Box::new(element),
+        };
+
+        self.elements.push(element);
     }
 
     pub fn init_graphics(&mut self, base: &VkBase, window_size: &winit::dpi::PhysicalSize<u32>, render_pass: vk::RenderPass, descriptor: &vk::DescriptorSetLayout) {
@@ -56,8 +73,8 @@ impl UiState {
 
     pub fn build(&mut self, ui_size: Vec2) {
 
-        self.selected = UiIndex::null();
-        self.pressed = UiIndex::null();
+        self.selected = null_mut();
+        self.pressed = null_mut();
 
         let mut build_context = BuildContext::default(&self.font, ui_size);
         
@@ -71,7 +88,7 @@ impl UiState {
         let mut instances = Vec::new();
 
         if !self.visible || self.elements.len() == 0 {
-            instances.push(UiElement::default().computed.to_instance());
+            instances.push(UiInstance::default());
             return instances;
         }
 
@@ -84,183 +101,22 @@ impl UiState {
         instances
     }
 
-    pub fn get_debug_outlines(&mut self, ui_size: Vec2) -> Vec<UiInstance> {
-        let mut instances = Vec::new();
-
-        if !self.visible || self.elements.len() == 0 {
-            instances.push(UiElement::default().computed.to_instance());
-            return instances;
-        }
-
-        for raw_e in &mut self.elements {
-            raw_e.get_instances(&mut instances, ui_size, &self.font);
-        }
-
-        self.dirty = false;
-
-        instances
-    }
-
-    pub unsafe fn get_element_mut(&mut self, root: Vec<usize>) -> Option<&mut UiElement> {
-        let mut h = &mut self.elements[*root.first()?];
+    pub fn get_element_mut(&mut self, root: Vec<usize>) -> Option<&mut UiElement> {
+        let mut h = self.elements.get_mut(*root.first()?)?;
         for i in 1..root.len() {
-            h = &mut h.childs[*root.get(i)?];
+            h = h.element.childs().get_mut(*root.get(i)?)?;
         }
 
         Some(h)
     }
 
-    pub fn get_element(&self, root: Vec<usize>) -> Option<&UiElement> {
-        let mut h = &self.elements[*root.first()?];
-        for i in 1..root.len() {
-            h = &h.childs[*root.get(i)?];
-        }
-
-        Some( &h )
-    }
-
-    pub fn update_cursor(&mut self, ui_size: Vec2, cursor_pos: Vec2, event: UiEvent) -> u8 {
+    pub fn update_cursor(&mut self, _ui_size: Vec2, cursor_pos: Vec2, _event: UiEvent) -> u8 {
 
         //0 = no event
         //1 = no event break
         //2 = old event
         //3 = new event
-        let mut bol = 0;
-
-        let ui = unsafe { &mut *(self as *const UiState).cast_mut() };
-
-        for i in self.elements.iter_mut().rev() {
-            let result = i.update_cursor(ui, ui_size, Vec2::default(), cursor_pos, event);
-            if result > 0 {
-                bol = result;
-                break;
-            }
-        }
-
-        //Not old event
-        if bol != 2 {
-            if !self.selected.is_null() && bol < 2 {
-                let selected_ptr = self.selected.ptr;
-                self.selected = UiIndex::null();
-                let selected = unsafe { &mut *selected_ptr };
-                match &mut selected.inherit {
-                    UiType::Button(button) => {
-                        if button.interaction == Interaction::Hover {
-                            button.interaction = Interaction::None;
-                            selected.dirty = true;
-                            self.dirty = true;
-                            return 3;
-                        }
-                    },
-                    UiType::CheckBox(checkbox) => {
-                        if checkbox.selected {
-                            checkbox.selected = false;
-                            selected.dirty = true;
-                            self.dirty = true;
-                            return 3;
-                        }
-                    }
-                    _ => todo!()
-                }
-            }
-            if !self.pressed.is_null() {
-                let element = self.pressed.get_by_ptr();
-                let is_in = element.is_in(cursor_pos);
-                match event {
-                    UiEvent::Move => {
-                        match &element.inherit {
-                            UiType::DragBox(drag) => {
-                                match element.style.position {
-                                    Position::Inline(_) if !element.parent.is_null() => {
-                                        let parent = unsafe { &mut *element.parent };
-                                        let mut move_vec = match drag.axis {
-                                            1 => Vec2::new(1.0, 0.0),
-                                            2 => Vec2::new(0.0, 1.0),
-                                            3 => Vec2::one(),
-                                            0 => Vec2::zero(),
-                                            _ => unreachable!()
-
-                                        } * (cursor_pos - self.cursor_pos);
-
-                                        if !drag.on_drag.is_null() {
-                                            let fn_ptr = drag.on_drag;
-                                            let mut event = DragEvent { move_vec, element };
-                                            
-                                            fn_ptr.call_vars(&mut event);
-                                            move_vec = event.move_vec;
-                                        }
-
-                                        parent.move_computed(move_vec);
-                                    },
-                                    _ => {
-                                        let mut move_vec = match drag.axis {
-                                            1 => Vec2::new(1.0, 0.0),
-                                            2 => Vec2::new(0.0, 1.0),
-                                            3 => Vec2::one(),
-                                            0 => Vec2::zero(),
-                                            _ => unreachable!()
-
-                                        } * (cursor_pos - self.cursor_pos);
-
-                                        if !drag.on_drag.is_null() {
-                                            let fn_ptr = drag.on_drag;
-                                            let mut event = DragEvent { move_vec, element };
-                                            
-                                            fn_ptr.call_vars(&mut event);
-                                            move_vec = event.move_vec;
-                                        }
-
-                                        element.computed.pos += move_vec;
-                                    }
-                                }
-                                bol = 3;
-                            }
-                            _ => ()
-                        }
-                    },
-                    UiEvent::Release => {
-                        match &mut element.inherit {
-                            UiType::Button(button) => {
-                                button.interaction = Interaction::None;
-                                element.dirty = true;
-                                bol = 3;
-                                let button2 = button as *const _ as *mut _;
-                                if is_in {
-                                    #[allow(invalid_reference_casting)]
-                                    button.on_press.call(ui, unsafe { &mut *button2 });
-                                }
-                                self.pressed = UiIndex::null();
-                            },
-                            UiType::CheckBox(checkbox) => {
-                                checkbox.pressed = false;
-                                element.dirty = true;
-                                bol = 3;
-                                let checkbox2 = checkbox as *const _ as *mut _;
-                                if is_in {
-                                    if checkbox.enabled {
-                                        #[allow(invalid_reference_casting)]
-                                        checkbox.on_disable.call(ui, unsafe { &mut *checkbox2 });
-                                    } else {
-                                        #[allow(invalid_reference_casting)]
-                                        checkbox.on_enable.call(ui, unsafe { &mut *checkbox2 });
-                                    }
-                                    checkbox.enabled = !checkbox.enabled;
-                                }
-                                self.pressed = UiIndex::null();
-                            },
-                            UiType::DragBox(dragbox) => {
-                                dragbox.interaction = Interaction::None;
-                                self.pressed = UiIndex::null();
-                            },
-                            _ => ()
-                        }
-                    },
-                    _ => (),
-                }
-            }
-        }
-        //New event
-        if bol == 3 { self.dirty = true }
+        let bol = 0;
         self.cursor_pos = cursor_pos;
         bol
     }
@@ -268,6 +124,9 @@ impl UiState {
     pub fn update(&mut self, base: &VkBase, new_size: Vec2, command_pool: &vk::CommandPool) {
         self.build(new_size);
         let ui_instances = self.get_instaces(new_size);
+        if ui_instances.is_empty() {
+            return;
+        }
         self.buffer_size = ui_instances.len();
     
         let cmd_buf = SinlgeTimeCommands::begin(base, command_pool);
@@ -275,7 +134,7 @@ impl UiState {
         unsafe {
             let barrier = vk::MemoryBarrier {
                 src_access_mask: vk::AccessFlags::TRANSFER_WRITE, // Vorherige Nutzung (Lesen in Shader).
-                dst_access_mask: vk::AccessFlags::VERTEX_ATTRIBUTE_READ,       // Zielnutzung (Schreiben oder Freigabe).
+                dst_access_mask: vk::AccessFlags::VERTEX_ATTRIBUTE_READ, // Zielnutzung (Schreiben oder Freigabe).
                 ..Default::default()
             };
         
@@ -289,7 +148,6 @@ impl UiState {
                 &[],
             );
             
-                // Lösche den Puffer erst nach der Barrier.
             SinlgeTimeCommands::end(base, command_pool, cmd_buf);
             self.instance_buffer.destroy(&base.device);
         };
@@ -318,8 +176,8 @@ impl UiState {
         }
         
         let barrier = vk::MemoryBarrier {
-            src_access_mask: vk::AccessFlags::TRANSFER_WRITE, // Vorherige Nutzung (Lesen in Shader).
-            dst_access_mask: vk::AccessFlags::VERTEX_ATTRIBUTE_READ,       // Zielnutzung (Schreiben oder Freigabe).
+            src_access_mask: vk::AccessFlags::TRANSFER_WRITE,        // Vorherige Nutzung (Lesen in Shader).
+            dst_access_mask: vk::AccessFlags::VERTEX_ATTRIBUTE_READ, // Zielnutzung (Schreiben oder Freigabe).
             ..Default::default()
         };
         
@@ -362,28 +220,4 @@ impl UiState {
         }
     }
 
-}
-
-#[derive(Debug)]
-pub struct UiIndex {
-    pub ptr: *mut UiElement,
-    pub index: usize,
-}
-
-impl UiIndex {
-    pub fn new(ptr: &mut UiElement, index: usize) -> UiIndex {
-        UiIndex { ptr: ptr as *mut UiElement, index }
-    }
-
-    pub fn null() -> UiIndex {
-        UiIndex { ptr: null_mut(), index: usize::MAX }
-    }
-
-    pub fn get_by_ptr(&self) -> &mut UiElement {
-        unsafe { &mut *self.ptr }
-    }
-
-    pub fn is_null(&self) -> bool {
-        self.ptr.is_null() && self.index == usize::MAX
-    }
 }

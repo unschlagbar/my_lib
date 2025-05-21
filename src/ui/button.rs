@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use std::rc::Rc;
 
 use super::{callback::ErasedFnPointer, Interaction, Style, UiElement, UiType};
 
@@ -12,7 +13,7 @@ pub struct Button {
 }
 
 impl Button {
-    pub  fn new(style: Style, hover_style: Style, press_style: Style, childs: Vec<UiElement>) -> UiElement {
+    pub fn new(style: Style, hover_style: Style, press_style: Style, childs: Vec<Rc<UiElement>>) -> UiElement {
         UiElement::extend(
             style,
             childs,

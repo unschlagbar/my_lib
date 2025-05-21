@@ -20,6 +20,22 @@ impl Vec2 {
         Self { x: 1.0, y: 1.0 }
     }
 
+    pub const fn min(&self) -> f32 {
+        if self.x < self.y {
+            self.x
+        } else {
+            self.y
+        }
+    }
+
+    pub const fn max(&self) -> f32 {
+        if self.x > self.y {
+            self.x
+        } else {
+            self.y
+        }
+    }
+
     #[inline(always)]
     pub fn len(&self) -> f32 {
         (self.x.powi(2) + self.y.powi(2)).sqrt()

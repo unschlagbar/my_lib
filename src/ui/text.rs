@@ -25,9 +25,10 @@ impl Text {
         Self { font, comp_text: Vec::with_capacity(text.len()), text, wrap: WrapMode::Word,  mode }
     }
 
-    pub fn set_text(&mut self, element: *mut UiElement, text: &str) {
-        self.text = text.to_owned();
-        let element = unsafe { &mut *element } ;
+    pub fn set_text(element: &mut UiElement, text: &str) {
+        if let UiType::Text(text_comp) = &mut element.inherit {
+            text_comp.text = text.to_owned();
+        }
         element.dirty = true;
     }
 
@@ -337,6 +338,7 @@ impl Text {
                     context.start_pos.x,
                     context.start_pos.y
                 );
+                //let style = element.style.clone();
 
                 element.computed.color = element.style.color.as_color();
                 element.computed.border_color = element.style.border_color.as_color();

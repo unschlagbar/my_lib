@@ -1,4 +1,3 @@
-
 use ash::vk;
 use graphics::VertexUi;
 use crate::graphics::{self, VkBase};
@@ -160,6 +159,4 @@ pub fn create_ui_pipeline(base: &VkBase, window_size: &winit::dpi::PhysicalSize<
     }
 
     (pipeline_layout, pipelines)
-
-
 }   

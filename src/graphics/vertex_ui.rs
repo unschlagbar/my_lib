@@ -89,8 +89,13 @@ pub struct UiInstance {
 }
 
 impl UiInstance {
-
     pub fn new(color: RGB, x: f32, y: f32, width: f32, height: f32, mode: u32) -> UiInstance {
         UiInstance { color: color.as_color(), border_color: Color::GREY, border: 1.0, x, y, width, height, corner: 3.0, mode }
+    }
+}
+
+impl Default for UiInstance {
+    fn default() -> Self {
+        Self { color: Color::WHITE, border_color: Color::WHITE, border: 0.0, x: 0.0, y: 0.0, width: 0.0, height: 0.0, corner: 0.0, mode: 0 }
     }
 }
